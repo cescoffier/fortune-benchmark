@@ -18,6 +18,7 @@ The _fortunes_ are stored in a PostGreSQL database (initialized on startup).
 * `fortune-virtual-thread-jdbc` - `fortune-blocking` with `@RunOnVirtualThread` - will suffer from pinning
 * `fortune-virtual-thread-pgclient` - use RESTEasy Reactive, with a blocking API (using `@RunOnVirtualThread`), and the
   Vert.x PostgreSQL client - will suffer from the Netty/Loom dance
+* `fortune-kotlin` - use RESTEasy Reactive with Kotlin co-routines, and the Vert.x PostgreSQL client
 
 ## Build
 

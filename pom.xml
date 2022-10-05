@@ -33,6 +33,7 @@
         <module>fortune-reactive</module>
         <module>fortune-virtual-thread-jdbc</module>
         <module>fortune-virtual-thread-pgclient</module>
+        <module>fortune-kotlin</module>
     </modules>
 
     <dependencyManagement>

@@ -36,6 +36,11 @@
             <artifactId>rest-assured</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>me.escoffier.loom</groupId>
+            <artifactId>loom-unit</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

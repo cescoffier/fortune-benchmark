@@ -12,7 +12,7 @@ public class Statements {
               PRIMARY KEY (id)
             )""";
 
-    public static String INSERT_FORTUNE = "INSERT INTO fortunes (id, fortune) VALUES  ($1, $2);";
+    public static String INSERT_FORTUNE = "INSERT INTO fortunes (id, fortune) VALUES  (?, ?);";
 
     public static String SELECT_ALL_FORTUNES = "SELECT * FROM fortunes";
 

@@ -1,7 +1,7 @@
 package me.escoffier.fortune.virtual.reactive;
 
 import io.quarkus.runtime.Startup;
-import io.vertx.mutiny.pgclient.PgPool;
+import io.vertx.mutiny.mysqlclient.MySQLPool;
 import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.SqlConnection;
 import io.vertx.mutiny.sqlclient.Tuple;
@@ -17,11 +17,11 @@ import java.util.Random;
 public class FortuneRepository {
 
 
-    private final PgPool datasource;
+    private final MySQLPool datasource;
     private final Logger logger;
     private final Random random;
 
-    public FortuneRepository(PgPool datasource, Logger logger) {
+    public FortuneRepository(MySQLPool datasource, Logger logger) {
         this.datasource = datasource;
         this.logger = logger;
         this.random = new Random();

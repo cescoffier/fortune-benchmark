@@ -32,7 +32,7 @@
         <module>fortune-blocking</module>
         <module>fortune-reactive</module>
         <module>fortune-virtual-thread-jdbc</module>
-        <module>fortune-virtual-thread-pgclient</module>
+        <module>fortune-virtual-thread-mariadb</module>
         <module>fortune-kotlin</module>
     </modules>
 

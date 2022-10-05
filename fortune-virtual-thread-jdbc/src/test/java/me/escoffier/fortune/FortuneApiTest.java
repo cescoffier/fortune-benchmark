@@ -19,7 +19,7 @@ import static io.restassured.RestAssured.get;
 public class FortuneApiTest {
 
     @Test
-    @ShouldPin
+    @ShouldNotPin
     public void testListAll() {
         var fortunes = get("/fortunes")
                 .as(new TypeRef<List<Fortune>>() {
@@ -29,7 +29,7 @@ public class FortuneApiTest {
     }
 
     @Test
-    @ShouldPin
+    @ShouldNotPin
     public void testRandom() {
         var fortune = get("/fortunes/random")
                 .as(Fortune.class);

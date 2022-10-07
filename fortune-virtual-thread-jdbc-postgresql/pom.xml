@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>fortune-virtual-thread-jdbc-postgresql</artifactId>
-    <description>Uses RESTEasy Reactive using a blocking API with JDBC (with Agroal) and @RunOnVirtualThread</description>
+    <description>Uses RESTEasy Reactive using a blocking API with PostgreSQL JDBC (with Agroal) and @RunOnVirtualThread</description>
 
     <dependencies>
         <dependency>

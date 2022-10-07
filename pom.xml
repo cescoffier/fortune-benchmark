@@ -30,10 +30,15 @@
 
     <modules>
         <module>fortune-blocking-postgresql</module>
+        <module>fortune-blocking-mariadb</module>
         <module>fortune-reactive-postgresql</module>
+        <module>fortune-reactive-mariadb</module>
         <module>fortune-virtual-thread-jdbc-postgresql</module>
+        <module>fortune-virtual-thread-jdbc-mariadb</module>
         <module>fortune-virtual-thread-postgresql</module>
+        <module>fortune-virtual-thread-mariadb</module>
         <module>fortune-kotlin-postgresql</module>
+        <module>fortune-kotlin-mariadb</module>
     </modules>
 
     <dependencyManagement>

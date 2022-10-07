@@ -13,7 +13,7 @@
     <artifactId>fortune-blocking-postgresql</artifactId>
 
 
-    <description>Uses RESTEasy Reactive using a blocking API with JDBC (with Agroal)</description>
+    <description>Uses RESTEasy Reactive using a blocking API with JDBC (with Agroal) using a PostgreSQL database</description>
 
     <dependencies>
         <dependency>

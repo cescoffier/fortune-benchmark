@@ -15,7 +15,7 @@
 
     <artifactId>fortune-kotlin-postgresql</artifactId>
 
-    <description>Uses RESTEasy Reactive using a reactive API with the Vert.x PG Client and Kotlin Coroutines
+    <description>Uses RESTEasy Reactive using a reactive API with the Vert.x PostgreSQL Client and Kotlin Coroutines
     </description>
 
     <dependencies>

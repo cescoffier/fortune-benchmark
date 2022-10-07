@@ -25,6 +25,8 @@ The _fortunes_ are stored in a PostGreSQL or MariaDB databases (initialized on s
   Vert.x MySQL/MariaDB client - will suffer from the Netty/Loom dance
 * `fortune-kotlin-postgresql` - use RESTEasy Reactive with Kotlin co-routines, and the Vert.x PostgreSQL client
 * `fortune-kotlin-mariadb` - use RESTEasy Reactive with Kotlin co-routines, and the Vert.x MySQL/MariaDB client
+* `fortune-nima-jdbc-postgresql` - use Helidon 4 (nima) with HikariCP and the PostgreSQL JDBC driver
+* `fortune-nima-jdbc-mariadb` - use Helidon 4 (nima) with HikariCP and the MariaDB JDBC driver
 
 ## Build
 

@@ -4,7 +4,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.common.mapper.TypeRef;
 import me.escoffier.fortune.virtual.jdbc.postgresql.Fortune;
 import me.escoffier.loom.loomunit.LoomUnitExtension;
-import me.escoffier.loom.loomunit.ShouldPin;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +17,6 @@ import static io.restassured.RestAssured.get;
 public class FortuneApiTest {
 
     @Test
-    @ShouldPin
     public void testListAll() {
         var fortunes = get("/fortunes")
                 .as(new TypeRef<List<Fortune>>() {
@@ -28,7 +26,6 @@ public class FortuneApiTest {
     }
 
     @Test
-    @ShouldPin
     public void testRandom() {
         var fortune = get("/fortunes/random")
                 .as(Fortune.class);

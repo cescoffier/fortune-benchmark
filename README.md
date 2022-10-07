@@ -27,6 +27,7 @@ The _fortunes_ are stored in a PostGreSQL or MariaDB databases (initialized on s
 * `fortune-kotlin-mariadb` - use RESTEasy Reactive with Kotlin co-routines, and the Vert.x MySQL/MariaDB client
 * `fortune-nima-jdbc-postgresql` - use Helidon 4 (nima) with HikariCP and the PostgreSQL JDBC driver
 * `fortune-nima-jdbc-mariadb` - use Helidon 4 (nima) with HikariCP and the MariaDB JDBC driver
+* `fortune-virtual-thread-vertx` - use Vertx with virtual threads, virtual threads are mounted on event loop threads when configured so
 
 ## Build
 

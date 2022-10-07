@@ -42,6 +42,7 @@
         <module>fortune-kotlin-mariadb</module>
         <module>fortune-nima-jdbc-mariadb</module>
         <module>fortune-nima-jdbc-postgresql</module>
+        <module>fortune-virtual-thread-vertx</module>
     </modules>
 
     <dependencyManagement>

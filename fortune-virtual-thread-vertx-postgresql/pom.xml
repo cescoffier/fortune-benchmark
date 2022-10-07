@@ -12,7 +12,7 @@
 
     <artifactId>fortune-virtual-thread-vertx-postgresql</artifactId>
 
-    <description>Uses RESTEasy Reactive using a @RunOnVirtualThread API with the Vert.x PG Client</description>
+    <description>Uses Vert.x virtual threads with PostgreSQL</description>
 
     <properties>
         <testcontainers.version>1.15.2</testcontainers.version>

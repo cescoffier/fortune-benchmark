@@ -17,6 +17,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <quarkus.version>999-SNAPSHOT</quarkus.version>
+        <nima.version>4.0.0-ALPHA1</nima.version>
 
         <compiler-plugin.version>3.8.1</compiler-plugin.version>
         <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
@@ -39,6 +40,8 @@
         <module>fortune-virtual-thread-mariadb</module>
         <module>fortune-kotlin-postgresql</module>
         <module>fortune-kotlin-mariadb</module>
+        <module>fortune-nima-jdbc-mariadb</module>
+        <module>fortune-nima-jdbc-postgresql</module>
     </modules>
 
     <dependencyManagement>

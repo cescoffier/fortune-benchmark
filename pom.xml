@@ -29,11 +29,11 @@
     </properties>
 
     <modules>
-        <module>fortune-blocking</module>
-        <module>fortune-reactive</module>
-        <module>fortune-virtual-thread-jdbc</module>
-        <module>fortune-virtual-thread-pgclient</module>
-        <module>fortune-kotlin</module>
+        <module>fortune-blocking-postgresql</module>
+        <module>fortune-reactive-postgresql</module>
+        <module>fortune-virtual-thread-jdbc-postgresql</module>
+        <module>fortune-virtual-thread-postgresql</module>
+        <module>fortune-kotlin-postgresql</module>
     </modules>
 
     <dependencyManagement>

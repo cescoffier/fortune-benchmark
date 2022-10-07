@@ -10,8 +10,10 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>fortune-virtual-thread-jdbc</artifactId>
-    <description>Uses RESTEasy Reactive using a blocking API with JDBC (with Agroal) and @RunOnVirtualThread</description>
+    <artifactId>fortune-blocking-postgresql</artifactId>
+
+
+    <description>Uses RESTEasy Reactive using a blocking API with JDBC (with Agroal)</description>
 
     <dependencies>
         <dependency>
@@ -34,11 +36,6 @@
         <dependency>
             <groupId>io.rest-assured</groupId>
             <artifactId>rest-assured</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>me.escoffier.loom</groupId>
-            <artifactId>loom-unit</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

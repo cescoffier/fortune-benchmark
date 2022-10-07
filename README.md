@@ -13,12 +13,12 @@ The _fortunes_ are stored in a PostGreSQL database (initialized on startup).
 
 ## Variants
 
-* `fortune-blocking` - use RESTEasy Reactive, with a blocking API, JDBC and Agroal
-* `fortune-reactive` - use RESTEasy Reactive, with a mutiny API, and the Vert.x PostgreSQL client
-* `fortune-virtual-thread-jdbc` - `fortune-blocking` with `@RunOnVirtualThread` - will suffer from pinning
-* `fortune-virtual-thread-pgclient` - use RESTEasy Reactive, with a blocking API (using `@RunOnVirtualThread`), and the
+* `fortune-blocking-postgresql` - use RESTEasy Reactive, with a blocking API, JDBC (postgresql) and Agroal
+* `fortune-reactive-postgresql` - use RESTEasy Reactive, with a mutiny API, and the Vert.x PostgreSQL client
+* `fortune-virtual-thread-jdbc-postgresql` - `fortune-blocking-(postgresql)` with `@RunOnVirtualThread` - will suffer from pinning
+* `fortune-virtual-thread-postgresql` - use RESTEasy Reactive, with a blocking API (using `@RunOnVirtualThread`), and the
   Vert.x PostgreSQL client - will suffer from the Netty/Loom dance
-* `fortune-kotlin` - use RESTEasy Reactive with Kotlin co-routines, and the Vert.x PostgreSQL client
+* `fortune-kotlin-postgresql` - use RESTEasy Reactive with Kotlin co-routines, and the Vert.x PostgreSQL client
 
 ## Build
 

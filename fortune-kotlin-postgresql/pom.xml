@@ -13,7 +13,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>fortune-kotlin</artifactId>
+    <artifactId>fortune-kotlin-postgresql</artifactId>
 
     <description>Uses RESTEasy Reactive using a reactive API with the Vert.x PG Client and Kotlin Coroutines
     </description>

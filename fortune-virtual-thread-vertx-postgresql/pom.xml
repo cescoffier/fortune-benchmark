@@ -10,7 +10,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>fortune-virtual-thread-vertx</artifactId>
+    <artifactId>fortune-virtual-thread-vertx-postgresql</artifactId>
 
     <description>Uses RESTEasy Reactive using a @RunOnVirtualThread API with the Vert.x PG Client</description>
 

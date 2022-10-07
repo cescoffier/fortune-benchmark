@@ -158,7 +158,7 @@ public class App implements Handler<HttpServerRequest> {
 
     public static void main(String[] args) throws Exception {
 
-        int eventLoopPoolSize = 1;
+        int eventLoopPoolSize = VertxOptions.DEFAULT_EVENT_LOOP_POOL_SIZE;
         String sizeProp = System.getProperty("vertx.eventLoopPoolSize");
         if (sizeProp != null) {
             try {

@@ -10,12 +10,15 @@ import io.vertx.core.sync.Vertx;
 import io.vertx.core.sync.http.HttpServer;
 import io.vertx.core.sync.http.HttpServerRequest;
 import io.vertx.core.sync.http.HttpServerResponse;
-import io.vertx.pgclient.*;
+import io.vertx.sqlclient.Pool;
+import io.vertx.sqlclient.PoolOptions;
 import io.vertx.sqlclient.PreparedQuery;
 import io.vertx.sqlclient.PreparedStatement;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowIterator;
 import io.vertx.sqlclient.RowSet;
+import io.vertx.sqlclient.SqlConnectOptions;
+import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.impl.SqlClientInternal;
 
 import java.io.ByteArrayOutputStream;
@@ -35,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.vertx.await.Async.await;
 
-public class App implements Handler<HttpServerRequest> {
+public abstract class AppBase implements Handler<HttpServerRequest> {
 
     private static final boolean USE_EVENT_LOOP_SCHEDULER = EventLoopScheduler.isAvailable();
 
@@ -46,10 +49,11 @@ public class App implements Handler<HttpServerRequest> {
 
     private static final CharSequence SERVER = HttpHeaders.createOptimized("vert.x");
 
-    private static final String SELECT_FORTUNE = "SELECT id, message from FORTUNE";
+    private static final String SELECT_FORTUNE = "SELECT id, fortune from fortunes";
 
     private final Vertx vertx;
     private final JsonObject config;
+    private final boolean initDb;
     private HttpServer server;
     private final Random random = new Random();
     private SqlClientInternal client;
@@ -60,30 +64,33 @@ public class App implements Handler<HttpServerRequest> {
         return HttpHeaders.createOptimized(DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now()));
     }
 
-    public App(Vertx vertx, JsonObject config) {
+    public AppBase(Vertx vertx, JsonObject config, boolean initDb) {
         this.vertx = vertx;
         this.config = config;
+        this.initDb = initDb;
     }
+
+    protected abstract SqlConnectOptions connectOptions(JsonObject config);
 
     public CompletableFuture<Void> start() {
         int port = 8080;
         server = vertx.createHttpServer();
         dateString = createDateHeader();
-        PgConnectOptions options = new PgConnectOptions();
-        options.setHost(config.getString("host", "localhost"));
-        options.setPort(config.getInteger("port", 5432));
-        options.setDatabase(config.getString("database", "postgres"));
-        options.setUser(config.getString("username", "postgres"));
-        options.setPassword(config.getString("password", "postgres"));
-        options.setCachePreparedStatements(true);
-        options.setPipeliningLimit(100_000); // Large pipelining means less flushing and we use a single connection anyway
+        SqlConnectOptions options = connectOptions(config);
         return vertx.submit(() -> {
-            server.requestHandler(App.this).listen(port, "0.0.0.0");
-            PgConnection conn = await(PgConnection.connect(vertx.unwrap(), options));
+            server.requestHandler(AppBase.this).listen(port, "0.0.0.0");
+            Pool pool = Pool.pool(vertx.unwrap(), options, new PoolOptions().setMaxSize(1));
+            SqlConnection conn = await(pool.getConnection());
+            if (initDb) {
+                initDb(conn);
+            }
             PreparedStatement ps = await(conn.prepare(SELECT_FORTUNE));
             client = (SqlClientInternal) conn;
             SELECT_FORTUNE_QUERY = ps.query();
         });
+    }
+
+    protected void initDb(SqlConnection conn) {
     }
 
     @Override
@@ -152,11 +159,10 @@ public class App implements Handler<HttpServerRequest> {
             Row row = resultSet.next();
             fortunes.add(new Fortune(row.getInteger(0), row.getString(1)));
         }
-        fortunes.add(new Fortune(0, "Additional fortune added at request time."));
         return fortunes;
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args, AppSupplier appSupplier) throws Exception {
 
         int eventLoopPoolSize = VertxOptions.DEFAULT_EVENT_LOOP_POOL_SIZE;
         String sizeProp = System.getProperty("vertx.eventLoopPoolSize");
@@ -174,12 +180,15 @@ public class App implements Handler<HttpServerRequest> {
             config = new JsonObject();
         }
         Vertx vertx = new Vertx(new VertxOptions().setEventLoopPoolSize(eventLoopPoolSize).setPreferNativeTransport(true), USE_EVENT_LOOP_SCHEDULER);
-        printConfig(vertx);
+        AppBase app = appSupplier.get(vertx, config, true);
+        printConfig(vertx, app.connectOptions(config));
         List<CompletableFuture<?>> all = new ArrayList<>();
-        for (int i = 0; i < eventLoopPoolSize; i++) {
+        vertx.submit(() -> {
+            return app.start().get(20, TimeUnit.SECONDS);
+        }).get();
+        for (int i = 1; i < eventLoopPoolSize; i++) {
             all.add(vertx.submit(() -> {
-                App app = new App(vertx, config);
-                return app.start().get(20, TimeUnit.SECONDS);
+                return appSupplier.get(vertx, config, false).start().get(20, TimeUnit.SECONDS);
             }));
         }
         try {
@@ -194,7 +203,7 @@ public class App implements Handler<HttpServerRequest> {
         }
     }
 
-    private static void printConfig(Vertx vertx) {
+    private static void printConfig(Vertx vertx, SqlConnectOptions connectOptions) {
         boolean nativeTransport = vertx.isNativeTransportEnabled();
         String version = "unknown";
         try {
@@ -220,13 +229,17 @@ public class App implements Handler<HttpServerRequest> {
         info("Event Loop Size: " + ((MultithreadEventExecutorGroup) vertx.unwrap().nettyEventLoopGroup()).executorCount());
         info("Native transport : " + nativeTransport);
         info("Use event loop scheduler : " + USE_EVENT_LOOP_SCHEDULER);
+        info("Backend host: " + connectOptions.getHost());
+        info("Backend port: " + connectOptions.getPassword());
+        info("Backend database: " + connectOptions.getDatabase());
+        info("Backend user: " + connectOptions.getUser());
     }
 
-    private static void info(String msg) {
+    static void info(String msg) {
         System.out.println(msg);
     }
 
-    private static void error(String msg, Throwable err) {
+    static void error(String msg, Throwable err) {
         System.err.println(msg);
         err.printStackTrace();
     }

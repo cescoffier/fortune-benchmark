@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -25,27 +26,26 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @Testcontainers
 @ExtendWith(LoomUnitExtension.class)
-public class FortuneApiTest {
+public class FortuneApiMariaDbTest {
 
     @Container
-    private GenericContainer postgresqlContainer = new PostgreSQLContainer()
+    private GenericContainer postgresqlContainer = new MariaDBContainer()
         .withDatabaseName("foo")
         .withUsername("foo")
-        .withPassword("secret")
-        .withClasspathResourceMapping("create-postgres.sql", "/docker-entrypoint-initdb.d/create-pg.sql", BindMode.READ_ONLY);;
+        .withPassword("secret");
 
     private Vertx vertx;
-    private App app;
+    private MariaDbApp app;
 
     @BeforeEach
     public void before() throws Exception {
         vertx = new Vertx();
-        app = new App(vertx, new JsonObject()
+        app = new MariaDbApp(vertx, new JsonObject()
             .put("host", postgresqlContainer.getHost())
-            .put("port", postgresqlContainer.getMappedPort(5432))
+            .put("port", postgresqlContainer.getMappedPort(3306))
             .put("database", ((JdbcDatabaseContainer)postgresqlContainer).getDatabaseName())
             .put("username", ((JdbcDatabaseContainer)postgresqlContainer).getUsername())
-            .put("password", ((JdbcDatabaseContainer)postgresqlContainer).getPassword())
+            .put("password", ((JdbcDatabaseContainer)postgresqlContainer).getPassword()), true
         );
         app.start().get(20, TimeUnit.SECONDS);
     }
@@ -64,7 +64,7 @@ public class FortuneApiTest {
             HttpClientResponse response = client.request(8080, "localhost", "GET", "/fortunes").send();
             assertEquals(200, response.statusCode());
             JsonArray fortunes = response.body().toJsonArray();
-            assertEquals(12 + 1,  fortunes.size());
+            assertEquals(15,  fortunes.size());
         }).get(20, TimeUnit.SECONDS);
     }
 

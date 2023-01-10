@@ -35,3 +35,14 @@ The _fortunes_ are stored in a PostGreSQL or MariaDB databases (initialized on s
 > mvn clean verify
 ```
 
+### Build with podman
+
+```shell
+# Enable socket
+> systemctl --user enable podman.socket --now
+
+# Export env var expected by Testcontainers
+> export DOCKER_HOST=unix:///run/user/${UID}/podman/podman.sock
+> export TESTCONTAINERS_RYUK_DISABLED=true
+```
+

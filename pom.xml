@@ -85,6 +85,8 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${compiler-plugin.version}</version>
                     <configuration>
+                        <source>19</source>
+                        <target>19</target>
                         <compilerArgs>
                             <arg>-parameters</arg>
                             <arg>--enable-preview</arg>
@@ -99,6 +101,7 @@
                         <argLine>--enable-preview --add-modules=jdk.incubator.concurrent</argLine>
                         <systemPropertyVariables>
                             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                            <!--suppress UnresolvedMavenProperty -->
                             <maven.home>${maven.home}</maven.home>
                         </systemPropertyVariables>
                     </configuration>
@@ -118,6 +121,7 @@
                                     </native.image.path>
                                     <java.util.logging.manager>org.jboss.logmanager.LogManager
                                     </java.util.logging.manager>
+                                    <!--suppress UnresolvedMavenProperty -->
                                     <maven.home>${maven.home}</maven.home>
                                 </systemPropertyVariables>
                             </configuration>

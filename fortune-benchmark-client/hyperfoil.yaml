@@ -1,0 +1,15 @@
+name: fortune-benchmark
+http:
+  host: http://localhost:8080
+  sharedConnections: 10000
+staircase:
+  initialRampUpDuration: 60s
+  steadyStateDuration: 10s
+  rampUpDuration: 10s
+  initialUsersPerSec: 1000
+  incrementUsersPerSec: 100
+  maxIterations: 11
+  scenario:
+    - fortune:
+        - httpRequest:
+            GET: /fortunes/random

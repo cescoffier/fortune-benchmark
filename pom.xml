@@ -18,6 +18,7 @@
 
         <quarkus.version>999-SNAPSHOT</quarkus.version>
         <nima.version>4.0.0-ALPHA1</nima.version>
+        <hyperfoil.version>0.23</hyperfoil.version>
 
         <compiler-plugin.version>3.8.1</compiler-plugin.version>
         <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
@@ -43,6 +44,7 @@
         <module>fortune-nima-jdbc-mariadb</module>
         <module>fortune-nima-jdbc-postgresql</module>
         <module>fortune-virtual-thread-vertx</module>
+        <module>fortune-benchmark-client</module>
     </modules>
 
     <dependencyManagement>

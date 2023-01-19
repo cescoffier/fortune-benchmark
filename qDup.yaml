@@ -1,0 +1,148 @@
+name: Build and run fortune benchmark
+scripts:
+
+  ### Benchmark setup
+
+  build-fortune:
+    - sh: sudo dnf -q -y install java-latest-openjdk
+    - sh: export JAVA_HOME=/usr/lib/jvm/java-19
+      
+    - sh: mkdir -p ${{WORKDIR}}/fortune
+    - read-state: ${{BUILD_TYPE}}
+      then:
+      - regex: local
+        then:
+        - script: build-fortune-local
+      - regex: remote
+        then:
+        - script: build-fortune-remote
+
+  build-fortune-local:
+    - for-each:
+        input: ${{SERVER_IMPL}}
+        name: IMPLEMENTATION
+      then:
+        - upload: ${{ENV.SCRIPT_DIR}}/${{IMPLEMENTATION}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
+
+  build-fortune-remote:
+    - sh: sudo dnf -q -y install git maven
+    - sh: git clone -q ${{BENCHMARK_REPO_URL}} ${{WORKDIR}}/fortune-src && git -C ${{WORKDIR}}/fortune-src -c advice.detachedHead=false checkout ${{BENCHMARK_REPO_COMMIT:main}}
+    - sh: cd ${{WORKDIR}}/fortune-src
+    - sh: mvn -B -q package -DskipTests
+      then:
+        - regex: ERROR | FATAL | FAILURE
+          then:
+            - abort: Failed to build Fortune Benchmark
+    - for-each:
+        input: ${{SERVER_IMPL}}
+        name: IMPLEMENTATION
+      then:
+        - sh: cp ${{IMPLEMENTATION}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
+          then:
+            - regex: No such file or directory
+              then:
+              - abort: Failed to copy benchmark ${{IMPLEMENTATION}}
+
+  cleanup-fortune:
+    - sh: rm -fr ${{WORKDIR}}/fortune-src
+    - sh: rm -fr ${{WORKDIR}}/fortune
+
+  ### Hyperfoil setup
+
+  get-hyperfoil:
+    - sh: mkdir -p ${{WORKDIR}}/hyperfoil
+    - sh: cd ${{WORKDIR}}/hyperfoil
+    - sh: wget -q -nc https://repo1.maven.org/maven2/io/hyperfoil/hyperfoil-distribution/${{HYPERFOIL_VERSION}}/hyperfoil-distribution-${{HYPERFOIL_VERSION}}.zip
+    - sh: unzip -q hyperfoil-distribution-${{HYPERFOIL_VERSION}}.zip
+
+    - read-state: ${{BUILD_TYPE}}
+      then:
+        - regex: local
+          then:
+          - upload: ${{ENV.SCRIPT_DIR}}/fortune-benchmark-client/hyperfoil.yaml ${{WORKDIR}}/hyperfoil
+        - regex: remote
+          then:
+          - sh: wget -q -nc ${{BENCHMARK_REPO_URL}}/raw/${{BENCHMARK_REPO_COMMIT:main}}/fortune-benchmark-client/hyperfoil.yaml
+
+  cleanup-hyperfoil:
+    - sh: rm -fr ${{WORKDIR}}/hyperfoil
+
+  ### Database setup
+
+  start-container-engine:
+    - read-state: ${{CONTAINER_ENGINE}}
+      then:
+        - regex: docker
+          then:
+            - sh: sudo systemctl --no-pager status docker | grep Active
+              then:
+                - regex: "\\s*Active: (?<DOCKER_ACTIVE>\\w+) \\(.*"
+                  then:
+                    - sh: if [ "${{DOCKER_ACTIVE}}" == "inactive" ]; then sudo systemctl start docker; fi
+
+  start-mariadb:
+    - sh: ${{CONTAINER_ENGINE}} run --detach --name fortune-mariadb --env MARIADB_ROOT_PASSWORD=fbench-pw quay.io/mariadb-foundation/mariadb-devel:${{MARIADB_VERSION:latest}}
+
+  start-postgres:
+    - sh: ${{CONTAINER_ENGINE}} run --detach --name fortune-postgres --env POSTGRES_PASSWORD=fbench-pw quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
+
+  stop-mariadb:
+    - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
+    - sh: ${{CONTAINER_ENGINE}} container rm fortune-mariadb
+
+  stop-postgres:
+    - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres
+    - sh: ${{CONTAINER_ENGINE}} container rm fortune-postgres
+
+### qDUP
+
+hosts:
+  server: ${{USER}}@${{HOST}}
+  client: ${{USER}}@${{HOST}}
+  database: ${{USER}}@${{HOST}}
+
+roles:
+  sut:
+    hosts: [server]
+    setup-scripts:
+      - build-fortune
+    cleanup-scripts:
+      - cleanup-fortune
+  client:
+    hosts: [client]
+    setup-scripts:
+      - get-hyperfoil
+    cleanup-scripts:
+      - cleanup-hyperfoil
+  database:
+    hosts: [database]
+    setup-scripts:
+      - start-container-engine
+      - start-mariadb
+      - start-postgres
+    cleanup-scripts:
+      - stop-mariadb
+      - stop-postgres
+
+states:
+  USER: me
+  HOST: localhost
+  WORKDIR: /tmp/fortune-benchmark-workdir
+
+  # [docker / podman]
+  CONTAINER_ENGINE: docker
+
+  # Versions (leave empty for latest)
+  HYPERFOIL_VERSION: 0.24
+  MARIADB_VERSION:
+  POSTGRES_VERSION:
+
+  # [local / remote] either upload the artifacts built locally or build remotely
+  BUILD_TYPE: remote
+
+  # Git location for remote build
+  BENCHMARK_REPO_URL: https://github.com/cescoffier/fortune-benchmark
+  BENCHMARK_REPO_COMMIT:
+
+  # List of server implementations to test
+  SERVER_IMPL: [fortune-blocking-mariadb, fortune-reactive-postgresql, fortune-virtual-thread-jdbc-mariadb, fortune-virtual-thread-mariadb]

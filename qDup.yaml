@@ -27,7 +27,13 @@ scripts:
     - sh: sudo dnf -q -y install git maven
     - sh: git clone -q ${{BENCHMARK_REPO_URL}} ${{WORKDIR}}/fortune-src && git -C ${{WORKDIR}}/fortune-src -c advice.detachedHead=false checkout ${{BENCHMARK_REPO_COMMIT:main}}
     - sh: cd ${{WORKDIR}}/fortune-src
-    - sh: mvn -B -q package -DskipTests
+    - sh: mkdir -p ${{WORKDIR}}/fortune-src/m2-repo
+    - read-state: ${{SERVER_IMPL}}
+      then:
+        - script: build-custom-quarkus
+        - sh: cd ${{WORKDIR}}/fortune-src
+        - sh: mvn -B -q versions:set-property -Dproperty=quarkus.version -DnewVersion=${{QUARKUS_VERSION}} -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+    - sh: mvn -B -q package -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
       then:
         - regex: ERROR | FATAL | FAILURE
           then:
@@ -40,6 +46,17 @@ scripts:
             - regex: No such file or directory
               then:
                 - abort: Failed to copy benchmark ${{IMPLEMENTATION.name}}
+
+  build-custom-quarkus:
+    - sh: git clone -q ${{QUARKUS_REPO_URL}} ${{WORKDIR}}/fortune-src/custom-quarkus && git -C ${{WORKDIR}}/fortune-src/custom-quarkus -c advice.detachedHead=false checkout ${{QUARKUS_REPO_COMMIT}}
+    - sh: cd ${{WORKDIR}}/fortune-src/custom-quarkus
+    - sh: ./mvnw -B -q -f independent-projects/ide-config/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+    - sh: ./mvnw -B -q -f independent-projects/enforcer-rules/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+    - sh: ./mvnw -B -q -f independent-projects/bootstrap/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+    - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout
+    - set-state: QUARKUS_VERSION
+    - sh: ./mvnw -B -q install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+      idle-timer: 10m
 
   cleanup-fortune:
     - sh: rm -fr ${{WORKDIR}}/fortune-src
@@ -211,6 +228,10 @@ states:
   BENCHMARK_REPO_URL: https://github.com/cescoffier/fortune-benchmark
   BENCHMARK_REPO_COMMIT:
 
+  # Git location for custom quarkus build
+  QUARKUS_REPO_URL: https://github.com/quarkusio/quarkus
+  QUARKUS_REPO_COMMIT:
+    
   # List of server implementations to test
   SERVER_IMPL: [
     {

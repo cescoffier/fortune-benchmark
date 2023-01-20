@@ -137,7 +137,7 @@ scripts:
     - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
     - set-signal: HYPERFOIL_DONE 1
     - sh: JAVA_OPTS=${{= "\"" + IMPLEMENTATION.properties.map( function(p){ return "-D" + p; } ).join( " " ) + "\"" }}
-    - sh: taskset --cpu-list ${{SERVER_CPUS}} $JAVA_HOME/bin/java $JAVA_OPTS -jar quarkus-run.jar
+    - sh: taskset --cpu-list ${{SERVER_CPUS}} -Dfortune-server-process $JAVA_HOME/bin/java $JAVA_OPTS -jar quarkus-run.jar
       on-signal:
         HYPERFOIL_DONE:
           - ctrlC:
@@ -172,6 +172,40 @@ scripts:
     - sh: report -y -d=${{WORKDIR}}/hyperfoil/report/${{CURRENT_IMPLEMENTATION}}-hyperfoil.html
     - sh: exit # leave the CLI session
 
+  # Monitoring -----------------------------------------------------------------------------------------------------------------
+
+  cpu-monitoring:
+    - sh: mkdir -p ${{WORKDIR}}/cpu-monitoring
+    - queue-download: ${{WORKDIR}}/cpu-monitoring
+    - repeat-until: BENCHMARK_DONE
+      then:
+        - set-signal: FORTUNE_READY 1
+        - wait-for: FORTUNE_READY
+        - repeat-until: HYPERFOIL_DONE
+          then:
+            - sh: date >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            - sh: top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            - sh: echo -e >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            - sleep: 1s
+
+  mem-monitoring:
+    - sh: mkdir -p ${{WORKDIR}}/mem-monitoring
+    - queue-download: ${{WORKDIR}}/mem-monitoring
+    - repeat-until: BENCHMARK_DONE
+      then:
+        - set-signal: FORTUNE_READY 1
+        - wait-for: FORTUNE_READY
+        - sh: ps --format pid,cmd a | grep Dfortune-server-process | awk '{print $1}'
+        - set-state: SERVER_PID
+        - sh: sudo pmap -x ${{SERVER_PID}} >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-pmap.txt
+        - repeat-until: HYPERFOIL_DONE
+          then:
+            - sh: date >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+            - sh: echo 'pmap= ' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+            - sh: echo 'proc= ' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+            - sh: echo -e >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            - sleep: 1s
+
 # qDUP -------------------------------------------------------------------------------------------------------------------------
 
 hosts:
@@ -186,6 +220,8 @@ roles:
       - build-fortune
     run-scripts:
       - run-fortune
+      - cpu-monitoring
+      - mem-monitoring
     cleanup-scripts:
       - cleanup-fortune
   client:

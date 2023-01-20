@@ -55,12 +55,16 @@ scripts:
     - sh: ./mvnw -B -q -f independent-projects/bootstrap/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
     - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout
     - set-state: QUARKUS_VERSION
-    - sh: ./mvnw -B -q install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+    - sh: ./mvnw -B install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
       idle-timer: 10m
 
   cleanup-fortune:
     - sh: rm -fr ${{WORKDIR}}/fortune-src
     - sh: rm -fr ${{WORKDIR}}/fortune
+
+  cleanup-monitoring:
+    - sh: rm -fr ${{WORKDIR}}/cpu-monitoring
+    - sh: rm -fr ${{WORKDIR}}/mem-monitoring
 
   # Hyperfoil setup
 
@@ -129,7 +133,7 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
-        - set-state: CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
+        - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
         - script: run-${{IMPLEMENTATION.type}}
     - signal: BENCHMARK_DONE
 
@@ -150,7 +154,7 @@ scripts:
 
   run-hyperfoil:
     - sh: export JAVA_HOME=/usr/lib/jvm/java-19
-    - sh: cd ${{WORKDIR}}/hyperfoil
+    - sh: mkdir -p ${{WORKDIR}}/hyperfoil/report
     - queue-download: ${{WORKDIR}}/hyperfoil/report
     - repeat-until: BENCHMARK_DONE
       then:
@@ -161,9 +165,9 @@ scripts:
 
   perform-hyperfoil-load-test:
     - add-prompt: "]$ " # CLI session
-    - sh: hyperfoil-${{HYPERFOIL_VERSION}}/bin/cli.sh
+    - sh: ${{WORKDIR}}/hyperfoil/hyperfoil-${{HYPERFOIL_VERSION}}/bin/cli.sh
     - sh: start-local
-    - sh: upload hyperfoil.yaml
+    - sh: upload ${{WORKDIR}}/hyperfoil/hyperfoil.yaml
     - log: Hyperfoil is performing load test against ${{CURRENT_IMPLEMENTATION}}
     - sh: run fortune-benchmark
       silent: true
@@ -174,36 +178,29 @@ scripts:
 
   # Monitoring -----------------------------------------------------------------------------------------------------------------
 
-  cpu-monitoring:
+  server-monitoring:
     - sh: mkdir -p ${{WORKDIR}}/cpu-monitoring
-    - queue-download: ${{WORKDIR}}/cpu-monitoring
-    - repeat-until: BENCHMARK_DONE
-      then:
-        - set-signal: FORTUNE_READY 1
-        - wait-for: FORTUNE_READY
-        - repeat-until: HYPERFOIL_DONE
-          then:
-            - sh: date >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-            - sh: top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-            - sh: echo -e >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-            - sleep: 1s
-
-  mem-monitoring:
     - sh: mkdir -p ${{WORKDIR}}/mem-monitoring
+    - queue-download: ${{WORKDIR}}/cpu-monitoring
     - queue-download: ${{WORKDIR}}/mem-monitoring
     - repeat-until: BENCHMARK_DONE
       then:
         - set-signal: FORTUNE_READY 1
         - wait-for: FORTUNE_READY
-        - sh: ps --format pid,cmd a | grep Dfortune-server-process | awk '{print $1}'
+        - sh: ps --format pid,cmd x | grep fortune-server-process | grep java | awk '{print $1}'
         - set-state: SERVER_PID
         - sh: sudo pmap -x ${{SERVER_PID}} >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-pmap.txt
         - repeat-until: HYPERFOIL_DONE
           then:
-            - sh: date >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+            # memory
+            - sh: date >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
             - sh: echo 'pmap= ' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
             - sh: echo 'proc= ' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-            - sh: echo -e >> ${{WORKDIR}}/top-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            - sh: echo -e >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+            # cpu
+            - sh: date >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            - sh: top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            - sh: echo -e >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
             - sleep: 1s
 
 # qDUP -------------------------------------------------------------------------------------------------------------------------
@@ -220,10 +217,10 @@ roles:
       - build-fortune
     run-scripts:
       - run-fortune
-      - cpu-monitoring
-      - mem-monitoring
+      - server-monitoring
     cleanup-scripts:
       - cleanup-fortune
+      - cleanup-monitoring
   client:
     hosts: [ client ]
     setup-scripts:

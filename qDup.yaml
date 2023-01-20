@@ -1,28 +1,27 @@
 name: Build and run fortune benchmark
 scripts:
 
-  ### Benchmark setup
+  # Benchmark setup ------------------------------------------------------------------------------------------------------------
 
   build-fortune:
     - sh: sudo dnf -q -y install java-latest-openjdk
     - sh: export JAVA_HOME=/usr/lib/jvm/java-19
-      
+
     - sh: mkdir -p ${{WORKDIR}}/fortune
     - read-state: ${{BUILD_TYPE}}
       then:
-      - regex: local
-        then:
-        - script: build-fortune-local
-      - regex: remote
-        then:
-        - script: build-fortune-remote
+        - regex: local
+          then:
+            - script: build-fortune-local
+        - regex: remote
+          then:
+            - script: build-fortune-remote
 
   build-fortune-local:
-    - for-each:
-        input: ${{SERVER_IMPL}}
-        name: IMPLEMENTATION
+    - read-state: ${{SERVER_IMPL}}
+    - for-each: IMPLEMENTATION
       then:
-        - upload: ${{ENV.SCRIPT_DIR}}/${{IMPLEMENTATION}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
+        - upload: ${{ENV.SCRIPT_DIR}}/${{IMPLEMENTATION.name}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
 
   build-fortune-remote:
     - sh: sudo dnf -q -y install git maven
@@ -33,21 +32,20 @@ scripts:
         - regex: ERROR | FATAL | FAILURE
           then:
             - abort: Failed to build Fortune Benchmark
-    - for-each:
-        input: ${{SERVER_IMPL}}
-        name: IMPLEMENTATION
+    - read-state: ${{SERVER_IMPL}}
+    - for-each: IMPLEMENTATION
       then:
-        - sh: cp ${{IMPLEMENTATION}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
+        - sh: cp -r ${{IMPLEMENTATION.name}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
           then:
             - regex: No such file or directory
               then:
-              - abort: Failed to copy benchmark ${{IMPLEMENTATION}}
+                - abort: Failed to copy benchmark ${{IMPLEMENTATION.name}}
 
   cleanup-fortune:
     - sh: rm -fr ${{WORKDIR}}/fortune-src
     - sh: rm -fr ${{WORKDIR}}/fortune
 
-  ### Hyperfoil setup
+  # Hyperfoil setup
 
   get-hyperfoil:
     - sh: mkdir -p ${{WORKDIR}}/hyperfoil
@@ -59,15 +57,15 @@ scripts:
       then:
         - regex: local
           then:
-          - upload: ${{ENV.SCRIPT_DIR}}/fortune-benchmark-client/hyperfoil.yaml ${{WORKDIR}}/hyperfoil
+            - upload: ${{ENV.SCRIPT_DIR}}/fortune-benchmark-client/hyperfoil.yaml ${{WORKDIR}}/hyperfoil
         - regex: remote
           then:
-          - sh: wget -q -nc ${{BENCHMARK_REPO_URL}}/raw/${{BENCHMARK_REPO_COMMIT:main}}/fortune-benchmark-client/hyperfoil.yaml
+            - sh: wget -q -nc ${{BENCHMARK_REPO_URL}}/raw/${{BENCHMARK_REPO_COMMIT:main}}/fortune-benchmark-client/hyperfoil.yaml
 
   cleanup-hyperfoil:
     - sh: rm -fr ${{WORKDIR}}/hyperfoil
 
-  ### Database setup
+  # Database setup
 
   start-container-engine:
     - read-state: ${{CONTAINER_ENGINE}}
@@ -81,10 +79,21 @@ scripts:
                     - sh: if [ "${{DOCKER_ACTIVE}}" == "inactive" ]; then sudo systemctl start docker; fi
 
   start-mariadb:
-    - sh: ${{CONTAINER_ENGINE}} run --detach --name fortune-mariadb --env MARIADB_ROOT_PASSWORD=fbench-pw quay.io/mariadb-foundation/mariadb-devel:${{MARIADB_VERSION:latest}}
+    - sh:
+        ${{CONTAINER_ENGINE}} run --detach --cpuset-cpus ${{DATABASE_CPUS}} -p 3306:3306 --name fortune-mariadb
+        --env MARIADB_DATABASE=fortunedb
+        --env MARIADB_USER=fortune
+        --env MARIADB_PASSWORD=fbench-pw
+        --env MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=true
+        quay.io/mariadb-foundation/mariadb-devel:${{MARIADB_VERSION:latest}}
 
   start-postgres:
-    - sh: ${{CONTAINER_ENGINE}} run --detach --name fortune-postgres --env POSTGRES_PASSWORD=fbench-pw quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
+    - sh:
+        ${{CONTAINER_ENGINE}} run --detach --cpuset-cpus ${{DATABASE_CPUS}} -p 5432:5432 --name fortune-postgres
+        --env POSTGRES_DATABASE=fortunedb
+        --env POSTGRES_USER=fortune
+        --env POSTGRES_PASSWORD=fbench-pw
+        quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
 
   stop-mariadb:
     - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
@@ -94,7 +103,47 @@ scripts:
     - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres
     - sh: ${{CONTAINER_ENGINE}} container rm fortune-postgres
 
-### qDUP
+  # Benchmark run --------------------------------------------------------------------------------------------------------------
+
+  run-fortune:
+    - sh: export JAVA_HOME=/usr/lib/jvm/java-19
+
+    - read-state: ${{SERVER_IMPL}}
+    - for-each: IMPLEMENTATION
+      then:
+        - script: run-${{IMPLEMENTATION.type}}
+    - signal: BENCHMARK_DONE
+
+  run-quarkus:
+    - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
+    - set-signal: HYPERFOIL_DONE 1
+    - sh: JAVA_OPTS=${{= "\"" + IMPLEMENTATION.properties.map( function(p){ return "-D" + p; } ).join( " " ) + "\"" }}
+    - sh: taskset --cpu-list ${{SERVER_CPUS}} $JAVA_HOME/bin/java $JAVA_OPTS -jar quarkus-run.jar
+      on-signal:
+        HYPERFOIL_DONE:
+          - ctrlC:
+      watch:
+        - regex: started
+          then:
+            - signal: FORTUNE_READY
+
+  # HyperFoil run
+
+  run-hyperfoil:
+    - sh: export JAVA_HOME=/usr/lib/jvm/java-19
+    - sh: cd ${{WORKDIR}}/hyperfoil
+    - repeat-until: BENCHMARK_DONE
+      then:
+        - set-signal: FORTUNE_READY 1
+        - wait-for: FORTUNE_READY
+        - script: perform-hyperfoil-load-test
+        - signal: HYPERFOIL_DONE
+
+  perform-hyperfoil-load-test:
+    # TODO:
+    - sleep: 10s
+
+# qDUP -------------------------------------------------------------------------------------------------------------------------
 
 hosts:
   server: ${{USER}}@${{HOST}}
@@ -102,20 +151,24 @@ hosts:
   database: ${{USER}}@${{HOST}}
 
 roles:
-  sut:
-    hosts: [server]
+  server:
+    hosts: [ server ]
     setup-scripts:
       - build-fortune
+    run-scripts:
+      - run-fortune
     cleanup-scripts:
       - cleanup-fortune
   client:
-    hosts: [client]
+    hosts: [ client ]
     setup-scripts:
       - get-hyperfoil
+    run-scripts:
+      - run-hyperfoil
     cleanup-scripts:
       - cleanup-hyperfoil
   database:
-    hosts: [database]
+    hosts: [ database ]
     setup-scripts:
       - start-container-engine
       - start-mariadb
@@ -123,6 +176,8 @@ roles:
     cleanup-scripts:
       - stop-mariadb
       - stop-postgres
+
+# State ------------------------------------------------------------------------------------------------------------------------
 
 states:
   USER: me
@@ -145,4 +200,34 @@ states:
   BENCHMARK_REPO_COMMIT:
 
   # List of server implementations to test
-  SERVER_IMPL: [fortune-blocking-mariadb, fortune-reactive-postgresql, fortune-virtual-thread-jdbc-mariadb, fortune-virtual-thread-mariadb]
+  SERVER_IMPL: [
+    {
+      name: fortune-blocking-mariadb,
+      type: quarkus,
+      properties: &quarkus-mariadb-jdbc-definition [
+        "quarkus.datasource.jdbc.url=jdbc:mariadb://localhost/fortunedb",
+        "quarkus.datasource.username=fortune",
+        "quarkus.datasource.password=fbench-pw",
+      ],
+    }, {
+      name: fortune-reactive-mariadb,
+      type: quarkus,
+      properties: &quarkus-mariadb-reactive-definition [
+        "quarkus.datasource.reactive.url=mariadb://localhost/fortunedb",
+        "quarkus.datasource.username=fortune",
+        "quarkus.datasource.password=fbench-pw",
+      ],
+    }, {
+      name: fortune-virtual-thread-jdbc-mariadb,
+      type: quarkus,
+      properties: *quarkus-mariadb-jdbc-definition,
+    }, {
+      name: fortune-virtual-thread-mariadb,
+      type: quarkus,
+      properties: *quarkus-mariadb-reactive-definition,
+    } ]
+
+  # CPU restrictions
+  SERVER_CPUS: 0-2
+  DATABASE_CPUS: 8-16
+  HYPERFOIL_CPUS: 32-64

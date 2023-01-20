@@ -33,7 +33,8 @@ scripts:
         - script: build-custom-quarkus
         - sh: cd ${{WORKDIR}}/fortune-src
         - sh: mvn -B -q versions:set-property -Dproperty=quarkus.version -DnewVersion=${{QUARKUS_VERSION}} -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
-    - sh: mvn -B -q package -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+    - queue-download: fortune-maven.txt
+    - sh: mvn -B package -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee fortune-maven.txt | grep -e ERROR -e FAIL -e FAILURE
       then:
         - regex: ERROR | FATAL | FAILURE
           then:
@@ -55,8 +56,13 @@ scripts:
     - sh: ./mvnw -B -q -f independent-projects/bootstrap/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
     - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout
     - set-state: QUARKUS_VERSION
-    - sh: ./mvnw -B install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+    - queue-download: quarkus-maven.txt
+    - sh: ./mvnw -B install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee quarkus-maven.txt | grep -e ERROR -e FAIL -e FAILURE
       idle-timer: 10m
+      then:
+        - regex: ERROR | FATAL | FAILURE
+          then:
+            - abort: Failed to build Quarkus
 
   cleanup-fortune:
     - sh: rm -fr ${{WORKDIR}}/fortune-src
@@ -133,7 +139,7 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
-        - set-state: CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
+        - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
         - script: run-${{IMPLEMENTATION.type}}
         - sleep: 2s # allow for monitoring and profiling to reset
     - signal: BENCHMARK_DONE
@@ -272,7 +278,7 @@ states:
       name: fortune-blocking-mariadb,
       type: quarkus,
       properties: &quarkus-mariadb-jdbc-definition [
-        "--enable-preview",
+        "jdk19 --enable-preview",
         "quarkus.datasource.jdbc.url=jdbc:mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",
@@ -281,7 +287,7 @@ states:
       name: fortune-reactive-mariadb,
       type: quarkus,
       properties: &quarkus-mariadb-reactive-definition [
-        "--enable-preview",
+        "jdk19 --enable-preview",
         "quarkus.datasource.reactive.url=mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",

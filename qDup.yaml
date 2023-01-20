@@ -133,8 +133,9 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
-        - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
+        - set-state: CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
         - script: run-${{IMPLEMENTATION.type}}
+        - sleep: 2s # allow for monitoring and profiling to reset
     - signal: BENCHMARK_DONE
 
   run-quarkus:
@@ -271,6 +272,7 @@ states:
       name: fortune-blocking-mariadb,
       type: quarkus,
       properties: &quarkus-mariadb-jdbc-definition [
+        "--enable-preview",
         "quarkus.datasource.jdbc.url=jdbc:mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",
@@ -279,6 +281,7 @@ states:
       name: fortune-reactive-mariadb,
       type: quarkus,
       properties: &quarkus-mariadb-reactive-definition [
+        "--enable-preview",
         "quarkus.datasource.reactive.url=mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",

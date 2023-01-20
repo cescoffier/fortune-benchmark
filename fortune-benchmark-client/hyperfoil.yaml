@@ -1,13 +1,13 @@
 name: fortune-benchmark
 http:
   host: http://localhost:8080
-  sharedConnections: 1000
+  sharedConnections: 10000
 staircase:
   initialRampUpDuration: 60s
   steadyStateDuration: 10s
   rampUpDuration: 10s
-  initialUsersPerSec: 10000
-  incrementUsersPerSec: 1000
+  initialUsersPerSec: 20000
+  incrementUsersPerSec: 2000
   maxIterations: 11
   scenario:
     - fortune:

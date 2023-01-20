@@ -28,7 +28,7 @@ scripts:
     - sh: git clone -q ${{BENCHMARK_REPO_URL}} ${{WORKDIR}}/fortune-src && git -C ${{WORKDIR}}/fortune-src -c advice.detachedHead=false checkout ${{BENCHMARK_REPO_COMMIT:main}}
     - sh: cd ${{WORKDIR}}/fortune-src
     - sh: mkdir -p ${{WORKDIR}}/fortune-src/m2-repo
-    - read-state: ${{SERVER_IMPL}}
+    - read-state: ${{QUARKUS_REPO_COMMIT}}
       then:
         - script: build-custom-quarkus
         - sh: cd ${{WORKDIR}}/fortune-src
@@ -137,7 +137,7 @@ scripts:
     - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
     - set-signal: HYPERFOIL_DONE 1
     - sh: JAVA_OPTS=${{= "\"" + IMPLEMENTATION.properties.map( function(p){ return "-D" + p; } ).join( " " ) + "\"" }}
-    - sh: taskset --cpu-list ${{SERVER_CPUS}} -Dfortune-server-process $JAVA_HOME/bin/java $JAVA_OPTS -jar quarkus-run.jar
+    - sh: taskset --cpu-list ${{SERVER_CPUS}} $JAVA_HOME/bin/java -Dfortune-server-process $JAVA_OPTS -jar quarkus-run.jar
       on-signal:
         HYPERFOIL_DONE:
           - ctrlC:

@@ -52,6 +52,7 @@ scripts:
     - sh: cd ${{WORKDIR}}/hyperfoil
     - sh: wget -q -nc https://repo1.maven.org/maven2/io/hyperfoil/hyperfoil-distribution/${{HYPERFOIL_VERSION}}/hyperfoil-distribution-${{HYPERFOIL_VERSION}}.zip
     - sh: unzip -q hyperfoil-distribution-${{HYPERFOIL_VERSION}}.zip
+    - sh: sed -i 's/^java/taskset --cpu-list ${{HYPERFOIL_CPUS}} &/' hyperfoil-${{HYPERFOIL_VERSION}}/bin/cli.sh
 
     - read-state: ${{BUILD_TYPE}}
       then:
@@ -111,6 +112,7 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
+        - set-state: CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
         - script: run-${{IMPLEMENTATION.type}}
     - signal: BENCHMARK_DONE
 
@@ -132,6 +134,7 @@ scripts:
   run-hyperfoil:
     - sh: export JAVA_HOME=/usr/lib/jvm/java-19
     - sh: cd ${{WORKDIR}}/hyperfoil
+    - queue-download: ${{WORKDIR}}/hyperfoil/report
     - repeat-until: BENCHMARK_DONE
       then:
         - set-signal: FORTUNE_READY 1
@@ -140,8 +143,17 @@ scripts:
         - signal: HYPERFOIL_DONE
 
   perform-hyperfoil-load-test:
-    # TODO:
-    - sleep: 10s
+    - add-prompt: "]$ " # CLI session
+    - sh: hyperfoil-${{HYPERFOIL_VERSION}}/bin/cli.sh
+    - sh: start-local
+    - sh: upload hyperfoil.yaml
+    - log: Hyperfoil is performing load test against ${{CURRENT_IMPLEMENTATION}}
+    - sh: run fortune-benchmark
+      silent: true
+    - sh: stats
+    - sh: export -y -d=${{WORKDIR}}/hyperfoil/report/${{CURRENT_IMPLEMENTATION}}-hyperfoil.json
+    - sh: report -y -d=${{WORKDIR}}/hyperfoil/report/${{CURRENT_IMPLEMENTATION}}-hyperfoil.html
+    - sh: exit # leave the CLI session
 
 # qDUP -------------------------------------------------------------------------------------------------------------------------
 

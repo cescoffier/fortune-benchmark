@@ -141,7 +141,7 @@ scripts:
       then:
         - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
         - script: run-${{IMPLEMENTATION.type}}
-        - sleep: 2s # allow for monitoring and profiling to reset
+        - sleep: 5s # allow for monitoring and profiling to reset
     - signal: BENCHMARK_DONE
 
   run-quarkus:

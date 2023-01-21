@@ -6,7 +6,6 @@ scripts:
   build-fortune:
     - sh: sudo dnf -q -y install java-latest-openjdk
     - sh: export JAVA_HOME=/usr/lib/jvm/java-19
-
     - sh: mkdir -p ${{WORKDIR}}/fortune
     - read-state: ${{BUILD_TYPE}}
       then:
@@ -106,7 +105,7 @@ scripts:
                   then:
                     - sh: if [ "${{DOCKER_ACTIVE}}" == "inactive" ]; then sudo systemctl start docker; fi
 
-  start-mariadb:
+  start-databases:
     - sh:
         ${{CONTAINER_ENGINE}} run --detach --cpuset-cpus ${{DATABASE_CPUS}} -p 3306:3306 --name fortune-mariadb
         --env MARIADB_DATABASE=fortunedb
@@ -114,8 +113,6 @@ scripts:
         --env MARIADB_PASSWORD=fbench-pw
         --env MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=true
         quay.io/mariadb-foundation/mariadb-devel:${{MARIADB_VERSION:latest}}
-
-  start-postgres:
     - sh:
         ${{CONTAINER_ENGINE}} run --detach --cpuset-cpus ${{DATABASE_CPUS}} -p 5432:5432 --name fortune-postgres
         --env POSTGRES_DATABASE=fortunedb
@@ -123,13 +120,17 @@ scripts:
         --env POSTGRES_PASSWORD=fbench-pw
         quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
 
-  stop-mariadb:
-    - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
-    - sh: ${{CONTAINER_ENGINE}} container rm fortune-mariadb
-
-  stop-postgres:
-    - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres
-    - sh: ${{CONTAINER_ENGINE}} container rm fortune-postgres
+  stop-databases:
+    - sh: ${{CONTAINER_ENGINE}} docker container ls | grep fortune-mariadb
+    - regex: .*
+      then:
+        - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
+        - sh: ${{CONTAINER_ENGINE}} container rm fortune-mariadb
+    - sh: ${{CONTAINER_ENGINE}} docker container ls | grep fortune-postgres
+    - regex: .*
+      then:
+        - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres
+        - sh: ${{CONTAINER_ENGINE}} container rm fortune-postgres
 
   # Benchmark run --------------------------------------------------------------------------------------------------------------
 
@@ -141,7 +142,7 @@ scripts:
       then:
         - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
         - script: run-${{IMPLEMENTATION.type}}
-        - sleep: 5s # allow for monitoring and profiling to reset
+        - sleep: 15s # allow for monitoring and profiling to reset
     - signal: BENCHMARK_DONE
 
   run-quarkus:
@@ -208,7 +209,7 @@ scripts:
             - sh: date >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
             - sh: top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
             - sh: echo -e >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-            - sleep: 1s
+            - sleep: 10s
 
 # qDUP -------------------------------------------------------------------------------------------------------------------------
 
@@ -240,11 +241,10 @@ roles:
     hosts: [ database ]
     setup-scripts:
       - start-container-engine
-      - start-mariadb
-      - start-postgres
+      - stop-databases # cleanup from previous bogus runs
+      - start-databases
     cleanup-scripts:
-      - stop-mariadb
-      - stop-postgres
+      - stop-databases
 
 # State ------------------------------------------------------------------------------------------------------------------------
 

@@ -121,12 +121,12 @@ scripts:
         quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
 
   stop-databases:
-    - sh: ${{CONTAINER_ENGINE}} docker container ls | grep fortune-mariadb
+    - sh: ${{CONTAINER_ENGINE}} container ls | grep fortune-mariadb
     - regex: .*
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
         - sh: ${{CONTAINER_ENGINE}} container rm fortune-mariadb
-    - sh: ${{CONTAINER_ENGINE}} docker container ls | grep fortune-postgres
+    - sh: ${{CONTAINER_ENGINE}} container ls | grep fortune-postgres
     - regex: .*
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres

@@ -282,6 +282,8 @@ states:
         "quarkus.datasource.jdbc.url=jdbc:mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",
+        "quarkus.datasource.jdbc.max-size=100",
+        "quarkus.datasource.jdbc.detect-statement-leaks=false",
       ],
     }, {
       name: fortune-reactive-mariadb,
@@ -291,6 +293,7 @@ states:
         "quarkus.datasource.reactive.url=mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",
+        "quarkus.datasource.reactive.max-size=100",
       ],
     }, {
       name: fortune-virtual-thread-jdbc-mariadb,

@@ -306,6 +306,6 @@ states:
     } ]
 
   # CPU restrictions
-  SERVER_CPUS: 0-2
-  DATABASE_CPUS: 8-16
-  HYPERFOIL_CPUS: 32-64
+  SERVER_CPUS: 0-1
+  DATABASE_CPUS: 5-8
+  HYPERFOIL_CPUS: 2-4

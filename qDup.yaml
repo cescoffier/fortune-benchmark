@@ -4,8 +4,7 @@ scripts:
   # Benchmark setup ------------------------------------------------------------------------------------------------------------
 
   build-fortune:
-    - sh: sudo dnf -q -y install java-latest-openjdk
-    - sh: export JAVA_HOME=/usr/lib/jvm/java-19
+    - script: sdk-select-jdk
     - sh: mkdir -p ${{WORKDIR}}/fortune
     - read-state: ${{BUILD_TYPE}}
       then:
@@ -23,7 +22,7 @@ scripts:
         - upload: ${{ENV.SCRIPT_DIR}}/${{IMPLEMENTATION.name}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
 
   build-fortune-remote:
-    - sh: sudo dnf -q -y install git maven
+    - script: sdk-install-maven
     - sh: git clone -q ${{BENCHMARK_REPO_URL}} ${{WORKDIR}}/fortune-src && git -C ${{WORKDIR}}/fortune-src -c advice.detachedHead=false checkout ${{BENCHMARK_REPO_COMMIT:main}}
     - sh: cd ${{WORKDIR}}/fortune-src
     - sh: mkdir -p ${{WORKDIR}}/fortune-src/m2-repo
@@ -33,10 +32,12 @@ scripts:
         - sh: cd ${{WORKDIR}}/fortune-src
         - sh: mvn -B -q versions:set-property -Dproperty=quarkus.version -DnewVersion=${{QUARKUS_VERSION}} -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
     - queue-download: fortune-maven.txt
-    - sh: mvn -B package -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee fortune-maven.txt | grep -e ERROR -e FAIL -e FAILURE
+    - log: Building fortune benchmark from source ${{BENCHMARK_REPO_URL}} @ ${{BENCHMARK_REPO_COMMIT:main}}
+    - sh: mvn -B package -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee fortune-maven.txt | grep -e "BUILD SUCCESS"
+      idle-timer: 5m
       then:
-        - regex: ERROR | FATAL | FAILURE
-          then:
+        - regex: BUILD SUCCESS
+          else:
             - abort: Failed to build Fortune Benchmark
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
@@ -56,20 +57,59 @@ scripts:
     - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout
     - set-state: QUARKUS_VERSION
     - queue-download: quarkus-maven.txt
-    - sh: ./mvnw -B install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee quarkus-maven.txt | grep -e ERROR -e FAIL -e FAILURE
+    - log: Building quarkus from source ${{QUARKUS_REPO_URL}} @ ${{QUARKUS_REPO_COMMIT}}
+    - sh: ./mvnw -B install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee quarkus-maven.txt | grep -e "BUILD SUCCESS"
       idle-timer: 10m
       then:
-        - regex: ERROR | FATAL | FAILURE
-          then:
+        - regex: BUILD SUCCESS
+          else:
             - abort: Failed to build Quarkus
 
   cleanup-fortune:
     - sh: rm -fr ${{WORKDIR}}/fortune-src
     - sh: rm -fr ${{WORKDIR}}/fortune
 
-  cleanup-monitoring:
-    - sh: rm -fr ${{WORKDIR}}/cpu-monitoring
-    - sh: rm -fr ${{WORKDIR}}/mem-monitoring
+  # Tools
+
+  install-sdkman:
+    - sh: source ~/.sdkman/bin/sdkman-init.sh
+    - regex: No such file or directory
+      then:
+        - sh: curl -s https://get.sdkman.io/?rcupdate=false | bash
+          then:
+            - regex: Enjoy|SDKMAN found
+              else:
+                - abort: Failed to install SDKMAN
+        - sh: source ~/.sdkman/bin/sdkman-init.sh
+      else:
+        - sh: sdk selfupdate force
+          then:
+            - regex: Successfully upgraded SDKMAN
+              else:
+                - abort: Failed to upgrade SDKMAN
+
+  uninstall-sdkman:
+    - log: Leaving sdkman installed
+    # - sh: unset -f sdk
+    # - sh: rm -fr ~/.sdkman
+
+  sdk-select-jdk:
+    - sh:
+        command: sdk install java ${{JAVA_VERSION:19.0.2-open}}
+        prompt:
+          "set as default? (Y/n): ": Y
+    - sh: sdk use java ${{JAVA_VERSION:19.0.2-open}}
+    - sh: java -version
+
+  sdk-install-maven:
+    - sh: which mvn
+    - regex: no mvn in
+      then:
+        - sh:
+            command: sdk install maven ${{MAVEN_VERSION:3.8.7}}
+            prompt:
+              "set as default? (Y/n): ": Y
+    - sh: mvn -version
 
   # Hyperfoil setup
 
@@ -99,11 +139,14 @@ scripts:
       then:
         - regex: docker
           then:
-            - sh: sudo systemctl --no-pager status docker | grep Active
+            - sh: systemctl is-active docker
+            - regex: inactive
               then:
-                - regex: "\\s*Active: (?<DOCKER_ACTIVE>\\w+) \\(.*"
+                - sh: sudo systemctl start docker # attempt to start docker daemon
+                - sh: systemctl is-active docker
+                - regex: inactive
                   then:
-                    - sh: if [ "${{DOCKER_ACTIVE}}" == "inactive" ]; then sudo systemctl start docker; fi
+                    - abort: Failed to start docker daemon
 
   start-databases:
     - sh:
@@ -122,12 +165,12 @@ scripts:
 
   stop-databases:
     - sh: ${{CONTAINER_ENGINE}} container ls | grep fortune-mariadb
-    - regex: .*
+    - regex: \w
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
         - sh: ${{CONTAINER_ENGINE}} container rm fortune-mariadb
     - sh: ${{CONTAINER_ENGINE}} container ls | grep fortune-postgres
-    - regex: .*
+    - regex: \w
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres
         - sh: ${{CONTAINER_ENGINE}} container rm fortune-postgres
@@ -135,7 +178,7 @@ scripts:
   # Benchmark run --------------------------------------------------------------------------------------------------------------
 
   run-fortune:
-    - sh: export JAVA_HOME=/usr/lib/jvm/java-19
+    - script: sdk-select-jdk
 
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
@@ -149,7 +192,7 @@ scripts:
     - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
     - set-signal: HYPERFOIL_DONE 1
     - sh: JAVA_OPTS=${{= "\"" + IMPLEMENTATION.properties.map( function(p){ return "-D" + p; } ).join( " " ) + "\"" }}
-    - sh: taskset --cpu-list ${{SERVER_CPUS}} $JAVA_HOME/bin/java -Dfortune-server-process $JAVA_OPTS -jar quarkus-run.jar
+    - sh: taskset --cpu-list ${{SERVER_CPUS}} java -Dfortune-server-process $JAVA_OPTS -jar quarkus-run.jar
       on-signal:
         HYPERFOIL_DONE:
           - ctrlC:
@@ -161,7 +204,6 @@ scripts:
   # HyperFoil run
 
   run-hyperfoil:
-    - sh: export JAVA_HOME=/usr/lib/jvm/java-19
     - sh: mkdir -p ${{WORKDIR}}/hyperfoil/report
     - queue-download: ${{WORKDIR}}/hyperfoil/report
     - repeat-until: BENCHMARK_DONE
@@ -187,35 +229,36 @@ scripts:
   # Monitoring -----------------------------------------------------------------------------------------------------------------
 
   server-monitoring:
-    - sh: mkdir -p ${{WORKDIR}}/cpu-monitoring
-    - sh: mkdir -p ${{WORKDIR}}/mem-monitoring
-    - queue-download: ${{WORKDIR}}/cpu-monitoring
-    - queue-download: ${{WORKDIR}}/mem-monitoring
+    - sh: mkdir -p ${{WORKDIR}}/monitoring
+    - queue-download: ${{WORKDIR}}/monitoring
     - repeat-until: BENCHMARK_DONE
       then:
         - set-signal: FORTUNE_READY 1
         - wait-for: FORTUNE_READY
         - sh: ps --format pid,cmd x | grep fortune-server-process | grep java | awk '{print $1}'
         - set-state: SERVER_PID
-        - sh: sudo pmap -x ${{SERVER_PID}} >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-pmap.txt
+        - sh: sudo pmap -x ${{SERVER_PID}} >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-pmap.txt
         - repeat-until: HYPERFOIL_DONE
           then:
             - sh: |
                 while sleep 10 
                 do
-              # memory
-                  date >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-                  echo 'pmap= ' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-                  echo 'proc= ' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+                # memory
+                  date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+                  echo 'pmap=' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+                  echo 'proc=' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
                   echo -e >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-              # cpu
-                  date >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-                  top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-                  echo -e >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+                # cpu
+                  date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+                  top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+                  echo -e >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
                 done
               on-signal:
                 HYPERFOIL_DONE:
                   - ctrlC:
+
+  cleanup-monitoring:
+    - sh: rm -fr ${{WORKDIR}}/monitoring
 
 # qDUP -------------------------------------------------------------------------------------------------------------------------
 
@@ -228,11 +271,13 @@ roles:
   server:
     hosts: [ server ]
     setup-scripts:
+      - install-sdkman
       - build-fortune
     run-scripts:
       - run-fortune
       - server-monitoring
     cleanup-scripts:
+      - uninstall-sdkman
       - cleanup-fortune
       - cleanup-monitoring
   client:

@@ -172,7 +172,7 @@ scripts:
         - signal: HYPERFOIL_DONE
 
   perform-hyperfoil-load-test:
-    - add-prompt: "]$ " # CLI session
+    - add-prompt: "]$ " # Hyperfoil CLI session
     - sh: ${{WORKDIR}}/hyperfoil/hyperfoil-${{HYPERFOIL_VERSION}}/bin/cli.sh
     - sh: start-local
     - sh: upload ${{WORKDIR}}/hyperfoil/hyperfoil.yaml
@@ -182,7 +182,7 @@ scripts:
     - sh: stats
     - sh: export -y -d=${{WORKDIR}}/hyperfoil/report/${{CURRENT_IMPLEMENTATION}}-hyperfoil.json
     - sh: report -y -d=${{WORKDIR}}/hyperfoil/report/${{CURRENT_IMPLEMENTATION}}-hyperfoil.html
-    - sh: exit # leave the CLI session
+    - sh: exit # leave the Hyperfoil CLI session
 
   # Monitoring -----------------------------------------------------------------------------------------------------------------
 
@@ -200,16 +200,22 @@ scripts:
         - sh: sudo pmap -x ${{SERVER_PID}} >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-pmap.txt
         - repeat-until: HYPERFOIL_DONE
           then:
-            # memory
-            - sh: date >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-            - sh: echo 'pmap= ' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-            - sh: echo 'proc= ' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-            - sh: echo -e >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-            # cpu
-            - sh: date >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-            - sh: top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-            - sh: echo -e >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-            - sleep: 10s
+            - sh: |
+                while sleep 10 
+                do
+              # memory
+                  date >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+                  echo 'pmap= ' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+                  echo 'proc= ' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+                  echo -e >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+              # cpu
+                  date >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+                  top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+                  echo -e >> ${{WORKDIR}}/cpu-monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+                done
+              on-signal:
+                HYPERFOIL_DONE:
+                  - ctrlC:
 
 # qDUP -------------------------------------------------------------------------------------------------------------------------
 

@@ -164,12 +164,12 @@ scripts:
         quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
 
   stop-databases:
-    - sh: ${{CONTAINER_ENGINE}} container ls | grep fortune-mariadb
+    - sh: ${{CONTAINER_ENGINE}} container ls -a | grep fortune-mariadb
     - regex: \w
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
         - sh: ${{CONTAINER_ENGINE}} container rm fortune-mariadb
-    - sh: ${{CONTAINER_ENGINE}} container ls | grep fortune-postgres
+    - sh: ${{CONTAINER_ENGINE}} container ls -a | grep fortune-postgres
     - regex: \w
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres
@@ -192,7 +192,11 @@ scripts:
     - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
     - set-signal: HYPERFOIL_DONE 1
     - sh: JAVA_OPTS=${{= "\"" + IMPLEMENTATION.properties.map( function(p){ return "-D" + p; } ).join( " " ) + "\"" }}
+    - read-state: ${{SERVER_MEMORY}}
+      then:
+        - sh: JAVA_OPTS="$JAVA_OPTS -Xms${{SERVER_MEMORY}} -Xmx${{SERVER_MEMORY}}"
     - sh: taskset --cpu-list ${{SERVER_CPUS}} java -Dfortune-server-process $JAVA_OPTS -jar quarkus-run.jar
+      idle-timer: 5m
       on-signal:
         HYPERFOIL_DONE:
           - ctrlC:
@@ -247,7 +251,7 @@ scripts:
                   date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
                   echo 'pmap=' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
                   echo 'proc=' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-                  echo -e >> ${{WORKDIR}}/mem-monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+                  echo -e >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
                 # cpu
                   date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
                   top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
@@ -356,7 +360,8 @@ states:
       properties: *quarkus-mariadb-reactive-definition,
     } ]
 
-  # CPU restrictions
+  # CPU and memory restrictions
+  SERVER_MEMORY:
   SERVER_CPUS: 0-1
   DATABASE_CPUS: 5-8
   HYPERFOIL_CPUS: 2-4

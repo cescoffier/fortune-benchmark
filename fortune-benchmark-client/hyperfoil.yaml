@@ -4,7 +4,7 @@ http:
   sharedConnections: 15000
 staircase:
   initialRampUpDuration: 60s
-  steadyStateDuration: 10s
+  steadyStateDuration: 20s
   rampUpDuration: 10s
   initialUsersPerSec: 20000
   incrementUsersPerSec: 2000

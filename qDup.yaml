@@ -195,7 +195,7 @@ scripts:
     - read-state: ${{SERVER_MEMORY}}
       then:
         - sh: JAVA_OPTS="$JAVA_OPTS -Xms${{SERVER_MEMORY}} -Xmx${{SERVER_MEMORY}}"
-    - sh: taskset --cpu-list ${{SERVER_CPUS}} java -Dfortune-server-process $JAVA_OPTS -jar quarkus-run.jar
+    - sh: taskset --cpu-list ${{SERVER_CPUS}} java -XX:+UseNUMA -Dfortune-server-process $JAVA_OPTS -jar quarkus-run.jar
       idle-timer: 5m
       on-signal:
         HYPERFOIL_DONE:
@@ -219,7 +219,7 @@ scripts:
 
   perform-hyperfoil-load-test:
     - add-prompt: "]$ " # Hyperfoil CLI session
-    - sh: ${{WORKDIR}}/hyperfoil/hyperfoil-${{HYPERFOIL_VERSION}}/bin/cli.sh
+    - sh: ${{WORKDIR}}/hyperfoil/hyperfoil-${{HYPERFOIL_VERSION}}/bin/cli.sh -XX:+UseNUMA
     - sh: start-local
     - sh: upload ${{WORKDIR}}/hyperfoil/hyperfoil.yaml
     - log: Hyperfoil is performing load test against ${{CURRENT_IMPLEMENTATION}}

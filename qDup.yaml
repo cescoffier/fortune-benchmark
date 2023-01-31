@@ -179,7 +179,6 @@ scripts:
 
   run-fortune:
     - script: sdk-select-jdk
-
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
@@ -236,6 +235,39 @@ scripts:
     - sh: report -y -d=${{WORKDIR}}/hyperfoil/report/${{CURRENT_IMPLEMENTATION}}-hyperfoil.html
     - sh: exit # leave the Hyperfoil CLI session
 
+  # Profiling -----------------------------------------------------------------------------------------------------------------
+
+  setup-profiling:
+    - read-state: ${{PROFILER}}
+      then:
+        - regex: async
+          then:
+            - sh: cd ${{WORKDIR}}
+            - sh: git clone -q ${{ASYNC_PROFILER_REPO_URL}} ${{WORKDIR}}/async-profiler-src && git -C ${{WORKDIR}}/async-profiler-src -c advice.detachedHead=false checkout ${{ASYNC_PROFILER_REPO_COMMIT:master}}
+            - sh: cd ${{WORKDIR}}/async-profiler-src
+            - sh: make all
+
+  server-profiling:
+    - sh: mkdir -p ${{WORKDIR}}/profiling
+    - queue-download: ${{WORKDIR}}/profiling
+    - repeat-until: BENCHMARK_DONE
+      then:
+        - set-signal: FORTUNE_READY 1
+        - wait-for: FORTUNE_READY
+        - sh: ps --format pid,cmd x | grep fortune-server-process | grep java | awk '{print $1}'
+        - set-state: SERVER_PID
+        - read-state: ${{PROFILER}}
+          then:
+            - regex: async
+              then:
+                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh -o jfr -f ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.jfr ${{PROFILER_ARGS}} start ${{SERVER_PID}}
+                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh status ${{SERVER_PID}}
+                - wait-for: HYPERFOIL_DONE
+                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh stop ${{SERVER_PID}} > ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.txt
+
+  cleanup-profiling:
+    - sh: rm -fr ${{WORKDIR}}/async-profiler-src
+
   # Monitoring -----------------------------------------------------------------------------------------------------------------
 
   server-monitoring:
@@ -248,24 +280,22 @@ scripts:
         - sh: ps --format pid,cmd x | grep fortune-server-process | grep java | awk '{print $1}'
         - set-state: SERVER_PID
         - sh: sudo pmap -x ${{SERVER_PID}} >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-pmap.txt
-        - repeat-until: HYPERFOIL_DONE
-          then:
-            - sh: |
-                while sleep 10 
-                do
-                # memory
-                  date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-                  echo 'pmap=' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-                  echo 'proc=' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-                  echo -e >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
-                # cpu
-                  date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-                  top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-                  echo -e >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
-                done
-              on-signal:
-                HYPERFOIL_DONE:
-                  - ctrlC:
+        - sh: |
+            while sleep 10 
+            do
+            # memory
+              date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+              echo 'pmap=' $( sudo pmap -x ${{SERVER_PID}} | grep total | awk '{print $4}' | sed 's/[^0-9]*//g' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+              echo 'proc=' $( sudo cat /proc/${{SERVER_PID}}/status | grep VmRSS | awk '{print $2}' ) >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+              echo -e >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-mem.txt
+            # cpu
+              date >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+              top -b -d 1 -n 1 -1 -o +%CPU | head -80 >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+              echo -e >> ${{WORKDIR}}/monitoring/${{CURRENT_IMPLEMENTATION}}-top.txt
+            done
+          on-signal:
+            HYPERFOIL_DONE:
+              - ctrlC:
 
   cleanup-monitoring:
     - sh: rm -fr ${{WORKDIR}}/monitoring
@@ -283,13 +313,16 @@ roles:
     setup-scripts:
       - install-sdkman
       - build-fortune
+      - setup-profiling
     run-scripts:
       - run-fortune
       - server-monitoring
+      - server-profiling
     cleanup-scripts:
       - uninstall-sdkman
       - cleanup-fortune
       - cleanup-monitoring
+      - cleanup-profiling
   client:
     hosts: [ client ]
     setup-scripts:
@@ -332,7 +365,7 @@ states:
   # Git location for custom quarkus build
   QUARKUS_REPO_URL: https://github.com/quarkusio/quarkus
   QUARKUS_REPO_COMMIT:
-    
+
   # List of server implementations to test
   SERVER_IMPL: [
     {
@@ -365,6 +398,13 @@ states:
       type: quarkus,
       properties: *quarkus-mariadb-reactive-definition,
     } ]
+
+  # Profiler
+  PROFILER:
+  PROFILER_ARGS:
+
+  ASYNC_PROFILER_REPO_URL: https://github.com/jvm-profiling-tools/async-profiler
+  ASYNC_PROFILER_REPO_COMMIT: v2.9
 
   # CPU and memory restrictions
   JDK_PARALLELISM:

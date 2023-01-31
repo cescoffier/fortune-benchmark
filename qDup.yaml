@@ -192,6 +192,12 @@ scripts:
     - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
     - set-signal: HYPERFOIL_DONE 1
     - sh: JAVA_OPTS=${{= "\"" + IMPLEMENTATION.properties.map( function(p){ return "-D" + p; } ).join( " " ) + "\"" }}
+    - read-state: ${{JDK_PARALLELISM}}
+      then:
+        - sh: JAVA_OPTS="$JAVA_OPTS -Djdk.virtualThreadScheduler.parallelism=${{JDK_PARALLELISM}}"
+    - read-state: ${{QUARKUS_EVENT_LOOPS}}
+      then:
+        - sh: JAVA_OPTS="$JAVA_OPTS -Dquarkus.vertx.event-loops-pool-size=${{QUARKUS_EVENT_LOOPS}}"
     - read-state: ${{SERVER_MEMORY}}
       then:
         - sh: JAVA_OPTS="$JAVA_OPTS -Xms${{SERVER_MEMORY}} -Xmx${{SERVER_MEMORY}}"
@@ -361,7 +367,10 @@ states:
     } ]
 
   # CPU and memory restrictions
+  JDK_PARALLELISM:
+  QUARKUS_EVENT_LOOPS:
   SERVER_MEMORY:
+
   SERVER_CPUS: 0-1
   DATABASE_CPUS: 5-8
   HYPERFOIL_CPUS: 2-4

@@ -184,7 +184,6 @@ scripts:
       then:
         - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
         - script: run-${{IMPLEMENTATION.type}}
-        - sleep: 15s # allow for monitoring and profiling to reset
     - signal: BENCHMARK_DONE
 
   run-quarkus:
@@ -204,6 +203,7 @@ scripts:
       idle-timer: 5m
       on-signal:
         HYPERFOIL_DONE:
+          - sleep: 15s # allow for monitoring and profiling to reset
           - ctrlC:
       watch:
         - regex: started
@@ -280,6 +280,7 @@ scripts:
                 - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh stop ${{SERVER_PID}} > ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.txt
 
   cleanup-profiling:
+    - sh: rm -fr ${{WORKDIR}}/profiling
     - sh: rm -fr ${{WORKDIR}}/async-profiler-src
 
   # Monitoring -----------------------------------------------------------------------------------------------------------------

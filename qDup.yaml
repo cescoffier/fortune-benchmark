@@ -268,16 +268,16 @@ scripts:
           then:
             - regex: async-jfr
               then:
-                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh -o jfr -f ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.jfr ${{PROFILER_ARGS}} start ${{SERVER_PID}}
+                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh start -o jfr -f ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.jfr ${{PROFILER_ARGS}} ${{SERVER_PID}}
                 - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh status ${{SERVER_PID}}
                 - wait-for: HYPERFOIL_DONE
                 - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh stop ${{SERVER_PID}} > ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.txt
             - regex: async-flame
               then:
-                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh -o flamegraph -f ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.html ${{PROFILER_ARGS}} start ${{SERVER_PID}}
+                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh start ${{PROFILER_ARGS}} ${{SERVER_PID}}
                 - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh status ${{SERVER_PID}}
                 - wait-for: HYPERFOIL_DONE
-                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh stop ${{SERVER_PID}} > ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.txt
+                - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh stop -o flamegraph -f ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.html ${{SERVER_PID}}
 
   cleanup-profiling:
     - sh: rm -fr ${{WORKDIR}}/profiling

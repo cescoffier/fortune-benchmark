@@ -28,6 +28,11 @@
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-netty-loom-adaptor</artifactId>
+            <version>${quarkus.platform.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit5</artifactId>
             <scope>test</scope>
         </dependency>
@@ -50,7 +55,10 @@
                 <configuration>
                     <source>19</source>
                     <target>19</target>
-                    <compilerArgs>--enable-preview</compilerArgs>
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                        <arg>-Dnet.bytebuddy.experimental</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>

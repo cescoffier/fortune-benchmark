@@ -387,7 +387,7 @@ states:
       name: fortune-blocking-mariadb,
       type: quarkus,
       properties: &quarkus-mariadb-jdbc-definition [
-        "jdk19 --enable-preview",
+        "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED",
         "quarkus.datasource.jdbc.url=jdbc:mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",
@@ -398,7 +398,7 @@ states:
       name: fortune-reactive-mariadb,
       type: quarkus,
       properties: &quarkus-mariadb-reactive-definition [
-        "jdk19 --enable-preview",
+        "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED",
         "quarkus.datasource.reactive.url=mariadb://localhost/fortunedb",
         "quarkus.datasource.username=fortune",
         "quarkus.datasource.password=fbench-pw",

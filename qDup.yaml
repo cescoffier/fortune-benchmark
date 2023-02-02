@@ -199,7 +199,7 @@ scripts:
     - read-state: ${{SERVER_MEMORY}}
       then:
         - sh: JAVA_OPTS="$JAVA_OPTS -Xms${{SERVER_MEMORY}} -Xmx${{SERVER_MEMORY}}"
-    - sh: taskset --cpu-list ${{SERVER_CPUS}} java -XX:+UseNUMA -Dfortune-server-process $JAVA_OPTS -jar quarkus-run.jar
+    - sh: taskset --cpu-list ${{SERVER_CPUS}} java -XX:+UseNUMA -Dfortune-server-process $JAVA_OPTS ${{SERVER_OPS}} -jar quarkus-run.jar
       idle-timer: 5m
       on-signal:
         HYPERFOIL_DONE:
@@ -429,3 +429,6 @@ states:
   SERVER_CPUS: 0-1
   DATABASE_CPUS: 5-8
   HYPERFOIL_CPUS: 2-4
+
+  # Other options
+  SERVER_OPTS:

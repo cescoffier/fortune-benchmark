@@ -57,7 +57,7 @@
                     <target>19</target>
                     <compilerArgs>
                         <arg>--enable-preview</arg>
-                        <arg>-Dnet.bytebuddy.experimental</arg>
+                        <arg>-J-Dnet.bytebuddy.experimental</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

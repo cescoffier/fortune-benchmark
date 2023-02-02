@@ -51,17 +51,15 @@ scripts:
   build-custom-quarkus:
     - sh: git clone -q ${{QUARKUS_REPO_URL}} ${{WORKDIR}}/fortune-src/custom-quarkus && git -C ${{WORKDIR}}/fortune-src/custom-quarkus -c advice.detachedHead=false checkout ${{QUARKUS_REPO_COMMIT}}
     - sh: cd ${{WORKDIR}}/fortune-src/custom-quarkus
-    - sh: ./mvnw -B -q -f independent-projects/ide-config/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
-    - sh: ./mvnw -B -q -f independent-projects/enforcer-rules/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
-    - sh: ./mvnw -B -q -f independent-projects/bootstrap/pom.xml install -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
-    - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout
-    - set-state: QUARKUS_VERSION
     - queue-download: quarkus-maven.txt
     - log: Building quarkus from source ${{QUARKUS_REPO_URL}} @ ${{QUARKUS_REPO_COMMIT}}
-    - sh: ./mvnw -B install -Dquickly -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee quarkus-maven.txt | grep -e "BUILD SUCCESS"
+    - sh: MAVEN_OPTS="-Xmx8g" ./mvnw -Dquickly -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee quarkus-maven.txt | grep -e "BUILD SUCCESS"
       idle-timer: 10m
       then:
         - regex: BUILD SUCCESS
+          then:
+            - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+            - set-state: QUARKUS_VERSION
           else:
             - abort: Failed to build Quarkus
 

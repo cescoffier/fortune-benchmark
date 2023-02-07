@@ -52,15 +52,15 @@ A [qDup](https://github.com/Hyperfoil/qDup) is provided to run the benchmark wit
 Just need to download qDup distribution and run the script. Make sure you have SSH access to HOST.
 ```shell
 # Download qDup uber jar
-> wget https://repo1.maven.org/maven2/io/hyperfoil/tools/qDup/0.6.16/qDup-0.6.16-uber.jar
+> wget https://repo1.maven.org/maven2/io/hyperfoil/tools/qDup/0.6.17/qDup-0.6.17-uber.jar
 
 # Run the qDup script
-> java -jar qDup-0.6.16-uber.jar -S USER=me -S HOST=somehost qDup.yaml
+> java -jar qDup-0.6.17-uber.jar -S USER=me -S HOST=somehost qDup.yaml
 ```
-To run it on local host, just use the following command instead.
+To run it on local host, without cloning the repository, use the following command:
 ```shell
 # Run qDup in localhost
-> java -jar qDup-0.6.16-uber.jar -S USER=$(whoami) qDup.yaml
+> java -jar qDup-0.6.17-uber.jar -S USER=$(whoami) https://raw.githubusercontent.com/cescoffier/fortune-benchmark/main/qDup.yaml
 ```
 
 There a number of options available. These are documented in the script.

@@ -1,6 +1,5 @@
 package me.escoffier.fortune.kotlin.postgresql;
 
-import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.SqlConnection;
 
 public class Statements {

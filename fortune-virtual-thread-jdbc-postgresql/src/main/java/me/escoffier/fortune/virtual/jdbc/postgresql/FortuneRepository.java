@@ -2,11 +2,9 @@ package me.escoffier.fortune.virtual.jdbc.postgresql;
 
 import io.agroal.api.AgroalDataSource;
 import io.quarkus.runtime.Startup;
+import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
-import javax.enterprise.context.ApplicationScoped;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +13,6 @@ import java.util.Random;
 @ApplicationScoped
 @Startup
 public class FortuneRepository {
-
 
     private final AgroalDataSource datasource;
     private final Logger logger;
@@ -75,6 +72,5 @@ public class FortuneRepository {
             throw new RuntimeException(e);
         }
     }
-
 
 }

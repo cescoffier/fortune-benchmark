@@ -1,6 +1,5 @@
 package me.escoffier.fortune.virtual.reactive.mariadb;
 
-import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.SqlConnection;
 
 public class Statements {

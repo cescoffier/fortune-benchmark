@@ -2,8 +2,8 @@ package me.escoffier.fortune.virtual.jdbc.mariadb;
 
 import io.smallrye.common.annotation.RunOnVirtualThread;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import java.util.List;
 
 @Path("/fortunes")

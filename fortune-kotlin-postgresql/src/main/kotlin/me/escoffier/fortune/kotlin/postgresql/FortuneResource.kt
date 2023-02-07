@@ -3,10 +3,10 @@ package me.escoffier.fortune.kotlin.postgresql
 import io.smallrye.mutiny.coroutines.awaitSuspending
 import me.escoffier.fortune.kotlin.postgresql.Fortune
 import me.escoffier.fortune.kotlin.postgresql.FortuneRepository
-import javax.enterprise.inject.Default
-import javax.inject.Inject
-import javax.ws.rs.GET
-import javax.ws.rs.Path
+import jakarta.enterprise.inject.Default
+import jakarta.inject.Inject
+import jakarta.ws.rs.GET
+import jakarta.ws.rs.Path
 
 @Path("/fortunes")
 class FortuneResource {

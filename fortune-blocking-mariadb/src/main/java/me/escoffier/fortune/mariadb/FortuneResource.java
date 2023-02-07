@@ -1,12 +1,12 @@
 package me.escoffier.fortune.mariadb;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+
 import java.util.List;
 
 @Path("/fortunes")
 public class FortuneResource {
-
 
     private final FortuneRepository repository;
 

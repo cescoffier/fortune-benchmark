@@ -19,7 +19,7 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
-        - upload: ${{ENV.SCRIPT_DIR}}/${{IMPLEMENTATION.name}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
+        - upload: ${{ENV.SCRIPT_DIR}}/${{IMPLEMENTATION}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
 
   build-fortune-remote:
     - script: sdk-install-maven
@@ -42,11 +42,11 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
-        - sh: cp -r ${{IMPLEMENTATION.name}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
+        - sh: cp -r ${{IMPLEMENTATION}}/target/quarkus-app ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
           then:
             - regex: No such file or directory
               then:
-                - abort: Failed to copy benchmark ${{IMPLEMENTATION.name}}
+                - abort: Failed to copy benchmark ${{IMPLEMENTATION}}
 
   build-custom-quarkus:
     - sh: git clone -q ${{QUARKUS_REPO_URL}} ${{WORKDIR}}/fortune-src/custom-quarkus && git -C ${{WORKDIR}}/fortune-src/custom-quarkus -c advice.detachedHead=false checkout ${{QUARKUS_REPO_COMMIT}}
@@ -180,14 +180,15 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
-        - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION.name}}
-        - script: run-${{IMPLEMENTATION.type}}
+        - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION}}
+        - script: run-${{SERVER_IMPL_DB.${{IMPLEMENTATION}}.type}}
+          state-scan: false
     - signal: BENCHMARK_DONE
 
   run-quarkus:
-    - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION.name}}
+    - sh: cd ${{WORKDIR}}/fortune/${{IMPLEMENTATION}}
     - set-signal: HYPERFOIL_DONE 1
-    - sh: JAVA_OPTS=${{= "\"" + IMPLEMENTATION.properties.map( function(p){ return "-D" + p; } ).join( " " ) + "\"" }}
+    - sh: export JAVA_OPTS="${{= ${{SERVER_IMPL_DB.${{IMPLEMENTATION}}.properties}}.map( function(p){ return "-D" + p; } ).join(\" \") }}"
     - read-state: ${{JDK_PARALLELISM}}
       then:
         - sh: JAVA_OPTS="$JAVA_OPTS -Djdk.virtualThreadScheduler.parallelism=${{JDK_PARALLELISM}}"
@@ -380,37 +381,31 @@ states:
   QUARKUS_REPO_COMMIT:
 
   # List of server implementations to test
-  SERVER_IMPL: [
-    {
-      name: fortune-blocking-mariadb,
-      type: quarkus,
-      properties: &quarkus-mariadb-jdbc-definition [
-        "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED",
-        "quarkus.datasource.jdbc.url=jdbc:mariadb://localhost/fortunedb",
-        "quarkus.datasource.username=fortune",
-        "quarkus.datasource.password=fbench-pw",
-        "quarkus.datasource.jdbc.max-size=100",
-        "quarkus.datasource.jdbc.detect-statement-leaks=false",
-      ],
-    }, {
-      name: fortune-reactive-mariadb,
-      type: quarkus,
-      properties: &quarkus-mariadb-reactive-definition [
-        "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED",
-        "quarkus.datasource.reactive.url=mariadb://localhost/fortunedb",
-        "quarkus.datasource.username=fortune",
-        "quarkus.datasource.password=fbench-pw",
-        "quarkus.datasource.reactive.max-size=100",
-      ],
-    }, {
-      name: fortune-virtual-thread-jdbc-mariadb,
-      type: quarkus,
-      properties: *quarkus-mariadb-jdbc-definition,
-    }, {
-      name: fortune-virtual-thread-mariadb,
-      type: quarkus,
-      properties: *quarkus-mariadb-reactive-definition,
-    } ]
+  SERVER_IMPL: [ fortune-blocking-mariadb, fortune-reactive-mariadb, fortune-virtual-thread-jdbc-mariadb, fortune-virtual-thread-mariadb ]
+  SERVER_IMPL_DB:
+    fortune-blocking-mariadb:
+      type: quarkus
+      properties: &quarkus-mariadb-jdbc-definition
+        - "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED"
+        - "quarkus.datasource.jdbc.url=jdbc:mariadb://localhost/fortunedb"
+        - "quarkus.datasource.username=fortune"
+        - "quarkus.datasource.password=fbench-pw"
+        - "quarkus.datasource.jdbc.max-size=100"
+        - "quarkus.datasource.jdbc.detect-statement-leaks=false"
+    fortune-reactive-mariadb:
+      type: quarkus
+      properties: &quarkus-mariadb-reactive-definition
+        - "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED"
+        - "quarkus.datasource.reactive.url=mariadb://localhost/fortunedb"
+        - "quarkus.datasource.username=fortune"
+        - "quarkus.datasource.password=fbench-pw"
+        - "quarkus.datasource.reactive.max-size=100"
+    fortune-virtual-thread-jdbc-mariadb:
+      type: quarkus
+      properties: *quarkus-mariadb-jdbc-definition
+    fortune-virtual-thread-mariadb:
+      type: quarkus
+      properties: *quarkus-mariadb-reactive-definition
 
   # Profiler
   PROFILER:

@@ -329,7 +329,7 @@ scripts:
           on-signal:
             BENCHMARK_DONE:
               - ctrlC:
-              - sh: rm pumba_linux_amd64
+        - sh: rm pumba_linux_amd64
 
 # qDUP -------------------------------------------------------------------------------------------------------------------------
 

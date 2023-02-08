@@ -426,6 +426,29 @@ states:
     fortune-virtual-thread-mariadb:
       type: quarkus
       properties: *quarkus-mariadb-reactive-definition
+    fortune-blocking-postgresql:
+      type: quarkus
+      properties: &quarkus-postgresql-jdbc-definition
+        - "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED"
+        - "quarkus.datasource.jdbc.url=jdbc:postgresql://localhost/fortunedb"
+        - "quarkus.datasource.username=fortune"
+        - "quarkus.datasource.password=fbench-pw"
+        - "quarkus.datasource.jdbc.max-size=100"
+        - "quarkus.datasource.jdbc.detect-statement-leaks=false"
+    fortune-reactive-postgresql:
+      type: quarkus
+      properties: &quarkus-postgresql-reactive-definition
+        - "jdk19 --enable-preview --add-opens java.base/java.lang=ALL-UNNAMED"
+        - "quarkus.datasource.reactive.url=postgresql://localhost/fortunedb"
+        - "quarkus.datasource.username=fortune"
+        - "quarkus.datasource.password=fbench-pw"
+        - "quarkus.datasource.reactive.max-size=100"
+    fortune-virtual-thread-jdbc-postgresql:
+      type: quarkus
+      properties: *quarkus-postgresql-jdbc-definition
+    fortune-virtual-thread-postgresql:
+      type: quarkus
+      properties: *quarkus-postgresql-reactive-definition
 
   # Profiler
   PROFILER:

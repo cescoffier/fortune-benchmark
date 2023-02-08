@@ -156,9 +156,9 @@ scripts:
         quay.io/mariadb-foundation/mariadb-devel:${{MARIADB_VERSION:latest}}
     - sh:
         ${{CONTAINER_ENGINE}} run --detach --cpuset-cpus ${{DATABASE_CPUS}} -p 5432:5432 --name fortune-postgres
-        --env POSTGRES_DATABASE=fortunedb
-        --env POSTGRES_USER=fortune
-        --env POSTGRES_PASSWORD=fbench-pw
+        --env POSTGRESQL_DATABASE=fortunedb
+        --env POSTGRESQL_USER=fortune
+        --env POSTGRESQL_PASSWORD=fbench-pw
         quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
 
   stop-databases:
@@ -180,6 +180,7 @@ scripts:
     - read-state: ${{SERVER_IMPL}}
     - for-each: IMPLEMENTATION
       then:
+        - sleep: 15s # allow for monitoring and profiling to reset
         - set-state: RUN.CURRENT_IMPLEMENTATION ${{IMPLEMENTATION}}
         - script: run-${{SERVER_IMPL_DB.${{IMPLEMENTATION}}.type}}
           state-scan: false
@@ -202,7 +203,6 @@ scripts:
       idle-timer: 5m
       on-signal:
         HYPERFOIL_DONE:
-          - sleep: 15s # allow for monitoring and profiling to reset
           - ctrlC:
       watch:
         - regex: started
@@ -220,6 +220,7 @@ scripts:
         - wait-for: FORTUNE_READY
         - script: perform-hyperfoil-load-test
         - signal: HYPERFOIL_DONE
+        - sleep: 1s # allow time for BENCHMARK_DONE to be set
 
   perform-hyperfoil-load-test:
     - add-prompt: "]$ " # Hyperfoil CLI session
@@ -277,6 +278,7 @@ scripts:
                 - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh status ${{SERVER_PID}}
                 - wait-for: HYPERFOIL_DONE
                 - sh: ${{WORKDIR}}/async-profiler-src/profiler.sh stop -o flamegraph -f ${{WORKDIR}}/profiling/${{CURRENT_IMPLEMENTATION}}-async.html ${{SERVER_PID}}
+        - sleep: 1s # allow time for BENCHMARK_DONE to be set
 
   cleanup-profiling:
     - sh: rm -fr ${{WORKDIR}}/profiling
@@ -310,9 +312,24 @@ scripts:
           on-signal:
             HYPERFOIL_DONE:
               - ctrlC:
+              - sleep: 1s # allow time for BENCHMARK_DONE to be set
 
   cleanup-monitoring:
     - sh: rm -fr ${{WORKDIR}}/monitoring
+
+  # Pumba! ---------------------------------------------------------------------------------------------------------------------
+
+  delay-databases:
+    - read-state: ${{DATABASE_DELAY}}
+      then:
+        - sh: wget -q -nc https://github.com/alexei-led/pumba/releases/download/${{PUMBA_VERSION}}/pumba_linux_amd64
+        - sh: chmod +x pumba_linux_amd64
+        - set-signal: BENCHMARK_DONE 1
+        - sh: ./pumba_linux_amd64 --log-level info netem --duration 1h --tc-image gaiadocker/iproute2 --pull-image delay ${{DATABASE_DELAY}} fortune-mariadb fortune-postgres
+          on-signal:
+            BENCHMARK_DONE:
+              - ctrlC:
+              - sh: rm pumba_linux_amd64
 
 # qDUP -------------------------------------------------------------------------------------------------------------------------
 
@@ -351,6 +368,8 @@ roles:
       - start-container-engine
       - stop-databases # cleanup from previous bogus runs
       - start-databases
+    run-scripts:
+      - delay-databases
     cleanup-scripts:
       - stop-databases
 
@@ -366,6 +385,7 @@ states:
 
   # Versions (leave empty for latest)
   HYPERFOIL_VERSION: 0.24
+  PUMBA_VERSION: 0.9.7
   MARIADB_VERSION:
   POSTGRES_VERSION:
 
@@ -422,6 +442,9 @@ states:
   SERVER_CPUS: 0-1
   DATABASE_CPUS: 5-8
   HYPERFOIL_CPUS: 2-4
+
+  # Options for Pumba! see https://github.com/alexei-led/pumba/blob/master/README.md#network-emulation-delay-sub-command
+  DATABASE_DELAY:
 
   # Other options
   SERVER_OPTS:

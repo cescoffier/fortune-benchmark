@@ -23,9 +23,9 @@ scripts:
 
   build-fortune-remote:
     - script: sdk-install-maven
+    - sh: mkdir -p ${{WORKDIR}}/fortune-src/m2-repo
     - sh: git clone -q ${{BENCHMARK_REPO_URL}} ${{WORKDIR}}/fortune-src && git -C ${{WORKDIR}}/fortune-src -c advice.detachedHead=false checkout ${{BENCHMARK_REPO_COMMIT:main}}
     - sh: cd ${{WORKDIR}}/fortune-src
-    - sh: mkdir -p ${{WORKDIR}}/fortune-src/m2-repo
     - read-state: ${{QUARKUS_REPO_COMMIT}}
       then:
         - script: build-custom-quarkus
@@ -51,6 +51,11 @@ scripts:
   build-custom-quarkus:
     - sh: git clone -q ${{QUARKUS_REPO_URL}} ${{WORKDIR}}/fortune-src/custom-quarkus && git -C ${{WORKDIR}}/fortune-src/custom-quarkus -c advice.detachedHead=false checkout ${{QUARKUS_REPO_COMMIT}}
     - sh: cd ${{WORKDIR}}/fortune-src/custom-quarkus
+    - read-state: ${{NETTY_REPO_COMMIT}}
+      then:
+        - script: build-custom-netty
+        - sh: cd ${{WORKDIR}}/fortune-src/custom-quarkus
+        - sh: ./mvnw -B -q -f bom/application/pom.xml versions:set-property -Dproperty=netty.version -DnewVersion=${{NETTY_VERSION}} -Dmaven.repo.local=${{M2_REPO_DIR}}
     - queue-download: quarkus-maven.txt
     - log: Building quarkus from source ${{QUARKUS_REPO_URL}} @ ${{QUARKUS_REPO_COMMIT}}
     - sh: MAVEN_OPTS="-Xmx8g" ./mvnw -Dquickly -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee quarkus-maven.txt | grep -e "BUILD SUCCESS"
@@ -62,6 +67,25 @@ scripts:
             - set-state: QUARKUS_VERSION
           else:
             - abort: Failed to build Quarkus
+
+  build-custom-netty:
+    - sh: sudo dnf install -q -y autoconf automake libtool make tar glibc-devel libaio-devel openssl-devel apr-devel lksctp-tools libgcc glibc-devel
+    - sh: git clone -q ${{NETTY_REPO_URL}} ${{WORKDIR}}/fortune-src/custom-netty && git -C  ${{WORKDIR}}/fortune-src/custom-netty -c advice.detachedHead=false checkout ${{NETTY_REPO_COMMIT}}
+    - sh: cd ${{WORKDIR}}/fortune-src/custom-netty
+    - queue-download: netty-maven.txt
+    - log: Building netty from source ${{NETTY_REPO_URL}} @ ${{NETTY_REPO_COMMIT}}
+    - sh: mvn clean install -Pfast -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee netty-maven.txt | grep -e "BUILD SUCCESS"
+      idle-timer: 10m
+      then:
+        - regex: BUILD SUCCESS
+          then:
+            - sh: mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+            - set-state: NETTY_VERSION
+            - sh: touch empty.class
+            - sh: jar cfv ${{M2_REPO_DIR}}/io/netty/netty-transport-native-kqueue/${{NETTY_VERSION}}/netty-transport-native-kqueue-${{NETTY_VERSION}}-osx-x86_64.jar empty.class
+            - sh: jar cfv ${{M2_REPO_DIR}}/io/netty/netty-transport-native-epoll/${{NETTY_VERSION}}/netty-transport-native-epoll-${{NETTY_VERSION}}-linux-aarch_64.jar empty.class
+          else:
+            - abort: Failed to build NETTY
 
   cleanup-fortune:
     - sh: rm -fr ${{WORKDIR}}/fortune-src
@@ -399,6 +423,10 @@ states:
   # Git location for custom quarkus build
   QUARKUS_REPO_URL: https://github.com/quarkusio/quarkus
   QUARKUS_REPO_COMMIT:
+
+  # Git location for custom netty build (implies custom quarkus)
+  NETTY_REPO_URL: https://github.com/netty/netty
+  NETTY_REPO_COMMIT:
 
   # List of server implementations to test
   SERVER_IMPL: [ fortune-blocking-mariadb, fortune-reactive-mariadb, fortune-virtual-thread-jdbc-mariadb, fortune-virtual-thread-mariadb ]

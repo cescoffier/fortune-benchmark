@@ -23,17 +23,17 @@ scripts:
 
   build-fortune-remote:
     - script: sdk-install-maven
-    - sh: mkdir -p ${{WORKDIR}}/fortune-src/m2-repo
+    - sh: mkdir -p ${{WORKDIR}}/fortune-m2-repo
     - sh: git clone -q ${{BENCHMARK_REPO_URL}} ${{WORKDIR}}/fortune-src && git -C ${{WORKDIR}}/fortune-src -c advice.detachedHead=false checkout ${{BENCHMARK_REPO_COMMIT:main}}
     - sh: cd ${{WORKDIR}}/fortune-src
     - read-state: ${{QUARKUS_REPO_COMMIT}}
       then:
         - script: build-custom-quarkus
         - sh: cd ${{WORKDIR}}/fortune-src
-        - sh: mvn -B -q versions:set-property -Dproperty=quarkus.version -DnewVersion=${{QUARKUS_VERSION}} -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+        - sh: mvn -B -q versions:set-property -Dproperty=quarkus.version -DnewVersion=${{QUARKUS_VERSION}} -Dmaven.repo.local=${{WORKDIR}}/fortune-m2-repo
     - queue-download: fortune-maven.txt
     - log: Building fortune benchmark from source ${{BENCHMARK_REPO_URL}} @ ${{BENCHMARK_REPO_COMMIT:main}}
-    - sh: mvn -B package -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee fortune-maven.txt | grep -e "BUILD SUCCESS"
+    - sh: mvn -B package -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-m2-repo | tee fortune-maven.txt | grep -e "BUILD SUCCESS"
       idle-timer: 5m
       then:
         - regex: BUILD SUCCESS
@@ -55,15 +55,15 @@ scripts:
       then:
         - script: build-custom-netty
         - sh: cd ${{WORKDIR}}/fortune-src/custom-quarkus
-        - sh: ./mvnw -B -q -f bom/application/pom.xml versions:set-property -Dproperty=netty.version -DnewVersion=${{NETTY_VERSION}} -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+        - sh: ./mvnw -B -q -f bom/application/pom.xml versions:set-property -Dproperty=netty.version -DnewVersion=${{NETTY_VERSION}} -Dmaven.repo.local=${{WORKDIR}}/fortune-m2-repo
     - queue-download: quarkus-maven.txt
     - log: Building quarkus from source ${{QUARKUS_REPO_URL}} @ ${{QUARKUS_REPO_COMMIT}}
-    - sh: MAVEN_OPTS="-Xmx8g" ./mvnw -Dquickly -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee quarkus-maven.txt | grep -e "BUILD SUCCESS"
+    - sh: MAVEN_OPTS="-Xmx8g" ./mvnw -Dquickly -Dmaven.repo.local=${{WORKDIR}}/fortune-m2-repo | tee quarkus-maven.txt | grep -e "BUILD SUCCESS"
       idle-timer: 10m
       then:
         - regex: BUILD SUCCESS
           then:
-            - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+            - sh: ./mvnw -B -q help:evaluate -Dexpression=project.version -DforceStdout -Dmaven.repo.local=${{WORKDIR}}/fortune-m2-repo
             - set-state: QUARKUS_VERSION
           else:
             - abort: Failed to build Quarkus
@@ -74,16 +74,16 @@ scripts:
     - sh: cd ${{WORKDIR}}/fortune-src/custom-netty
     - queue-download: netty-maven.txt
     - log: Building netty from source ${{NETTY_REPO_URL}} @ ${{NETTY_REPO_COMMIT}}
-    - sh: mvn clean install -Pfast -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo | tee netty-maven.txt | grep -e "BUILD SUCCESS"
+    - sh: mvn clean install -Pfast -DskipTests -Dmaven.repo.local=${{WORKDIR}}/fortune-m2-repo | tee netty-maven.txt | grep -e "BUILD SUCCESS"
       idle-timer: 10m
       then:
         - regex: BUILD SUCCESS
           then:
-            - sh: mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout -Dmaven.repo.local=${{WORKDIR}}/fortune-src/m2-repo
+            - sh: mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout -Dmaven.repo.local=${{WORKDIR}}/fortune-m2-repo
             - set-state: NETTY_VERSION
             - sh: touch empty.class
-            - sh: jar cfv ${{WORKDIR}}/fortune-src/m2-repo/io/netty/netty-transport-native-kqueue/${{NETTY_VERSION}}/netty-transport-native-kqueue-${{NETTY_VERSION}}-osx-x86_64.jar empty.class
-            - sh: jar cfv ${{WORKDIR}}/fortune-src/m2-repo/io/netty/netty-transport-native-epoll/${{NETTY_VERSION}}/netty-transport-native-epoll-${{NETTY_VERSION}}-linux-aarch_64.jar empty.class
+            - sh: jar cfv ${{WORKDIR}}/fortune-m2-repo/io/netty/netty-transport-native-kqueue/${{NETTY_VERSION}}/netty-transport-native-kqueue-${{NETTY_VERSION}}-osx-x86_64.jar empty.class
+            - sh: jar cfv ${{WORKDIR}}/fortune-m2-repo/io/netty/netty-transport-native-epoll/${{NETTY_VERSION}}/netty-transport-native-epoll-${{NETTY_VERSION}}-linux-aarch_64.jar empty.class
           else:
             - abort: Failed to build NETTY
 

@@ -186,12 +186,16 @@ scripts:
         quay.io/centos7/postgresql-${{POSTGRES_VERSION:13}}-centos7:latest
 
   stop-databases:
-    - sh: ${{CONTAINER_ENGINE}} container ls -a | grep fortune-mariadb
+    - sh: 
+        command: ${{CONTAINER_ENGINE}} container ls -a | grep fortune-mariadb
+        ignore-exit-code: true
     - regex: \w
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-mariadb
         - sh: ${{CONTAINER_ENGINE}} container rm fortune-mariadb
-    - sh: ${{CONTAINER_ENGINE}} container ls -a | grep fortune-postgres
+    - sh: 
+        command: ${{CONTAINER_ENGINE}} container ls -a | grep fortune-postgres
+        ignore-exit-code: true
     - regex: \w
       then:
         - sh: ${{CONTAINER_ENGINE}} container stop fortune-postgres
